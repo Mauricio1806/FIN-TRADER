@@ -1,0 +1,18 @@
+brasil:
+  - PETR4.SA
+  - VALE3.SA
+  - ITUB4.SA
+  - BBDC4.SA
+  - B3SA3.SA
+  - WEGE3.SA
+  - RENT3.SA
+  - MGLU3.SA
+  - PRIO3.SA
+  - ^BVSP
+usa:
+  - SPY
+  - QQQ
+  - NVDA
+macro:
+  - ^VIX
+  - USDBRL=X

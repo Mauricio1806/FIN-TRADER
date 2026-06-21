@@ -1,0 +1,22 @@
+name: Daily Brief - Close BR
+on:
+  schedule:
+    - cron: '0 21 * * 1-5'  # 18:00 BRT (21:00 UTC)
+  workflow_dispatch:
+
+jobs:
+  run_brief:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python -m src.main --window close_br
+      - run: |
+          git config user.name "FIN-TRADER Bot"
+          git config user.email "bot@fin-trader"
+          git add reports/ db/
+          git commit -m "chore: daily brief $(date -Iseconds)" || true
+          git push
