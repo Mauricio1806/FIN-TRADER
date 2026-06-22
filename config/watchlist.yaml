@@ -1,18 +1,74 @@
-brasil:
-  - PETR4.SA
-  - VALE3.SA
-  - ITUB4.SA
-  - BBDC4.SA
-  - B3SA3.SA
-  - WEGE3.SA
-  - RENT3.SA
-  - MGLU3.SA
-  - PRIO3.SA
-  - ^BVSP
-usa:
-  - SPY
-  - QQQ
-  - NVDA
-macro:
-  - ^VIX
-  - USDBRL=X
+version: 2
+last_updated: "2026-06-21"
+
+# Watchlist FIN-TRADER — foco Brasil primário, secundários US/EU, contextual Ásia.
+# Cada ticker tem: symbol (yfinance), name (display), region, sector, benchmark.
+# Tickers que falham repetidamente são marcados active: false e ignorados sem quebrar pipeline.
+
+br:
+  benchmark: "^BVSP"
+  weight: 0.45
+  tickers:
+    - { symbol: "^BVSP",   name: "Ibovespa",        sector: "index",        active: true }
+    - { symbol: "PETR4.SA", name: "Petrobras PN",    sector: "oil_gas",      active: true }
+    - { symbol: "PETR3.SA", name: "Petrobras ON",    sector: "oil_gas",      active: true }
+    - { symbol: "VALE3.SA", name: "Vale",            sector: "mining",       active: true }
+    - { symbol: "ITUB4.SA", name: "Itau Unibanco",   sector: "banks",        active: true }
+    - { symbol: "BBDC4.SA", name: "Bradesco PN",     sector: "banks",        active: true }
+    - { symbol: "BBAS3.SA", name: "Banco do Brasil", sector: "banks",        active: true }
+    - { symbol: "B3SA3.SA", name: "B3",              sector: "financials",   active: true }
+    - { symbol: "WEGE3.SA", name: "WEG",             sector: "industrials",  active: true }
+    - { symbol: "ABEV3.SA", name: "Ambev",           sector: "consumer",     active: true }
+    - { symbol: "RENT3.SA", name: "Localiza",        sector: "transport",    active: true }
+    - { symbol: "SUZB3.SA", name: "Suzano",          sector: "paper_pulp",   active: true }
+    - { symbol: "ELET3.SA", name: "Eletrobras ON",   sector: "utilities",    active: true }
+    - { symbol: "RADL3.SA", name: "Raia Drogasil",   sector: "health",       active: true }
+    - { symbol: "MGLU3.SA", name: "Magazine Luiza",  sector: "retail",       active: true }
+    - { symbol: "LREN3.SA", name: "Lojas Renner",    sector: "retail",       active: true }
+    - { symbol: "JBSS3.SA", name: "JBS",             sector: "food",         active: true }
+    - { symbol: "PRIO3.SA", name: "Prio (PetroRio)", sector: "oil_gas",      active: true }
+    - { symbol: "EQTL3.SA", name: "Equatorial",      sector: "utilities",    active: true }
+    - { symbol: "BRAX11.SA", name: "BRAX ETF IBrX",  sector: "etf",          active: true }
+
+us:
+  benchmark: "SPY"
+  weight: 0.25
+  tickers:
+    - { symbol: "SPY",    name: "S&P 500 ETF",      sector: "etf",          active: true }
+    - { symbol: "QQQ",    name: "Nasdaq 100 ETF",   sector: "etf",          active: true }
+    - { symbol: "AAPL",   name: "Apple",            sector: "tech",         active: true }
+    - { symbol: "MSFT",   name: "Microsoft",        sector: "tech",         active: true }
+    - { symbol: "NVDA",   name: "Nvidia",           sector: "semis",        active: true }
+    - { symbol: "GOOGL",  name: "Alphabet",         sector: "tech",         active: true }
+    - { symbol: "AMZN",   name: "Amazon",           sector: "consumer",     active: true }
+    - { symbol: "META",   name: "Meta",             sector: "tech",         active: true }
+    - { symbol: "TSLA",   name: "Tesla",            sector: "auto",         active: true }
+    - { symbol: "JPM",    name: "JPMorgan",         sector: "banks",        active: true }
+    - { symbol: "XOM",    name: "Exxon",            sector: "oil_gas",      active: true }
+    - { symbol: "^VIX",   name: "VIX",              sector: "volatility",   active: true }
+
+eu:
+  benchmark: "^STOXX50E"
+  weight: 0.15
+  tickers:
+    - { symbol: "^STOXX50E", name: "EuroStoxx 50",  sector: "index",        active: true }
+    - { symbol: "^GDAXI",    name: "DAX",            sector: "index",        active: true }
+    - { symbol: "^FTSE",     name: "FTSE 100",       sector: "index",        active: true }
+    - { symbol: "ASML.AS",   name: "ASML",           sector: "semis",        active: true }
+    - { symbol: "SAP.DE",    name: "SAP",            sector: "tech",         active: true }
+    - { symbol: "MC.PA",     name: "LVMH",           sector: "luxury",       active: true }
+    - { symbol: "NESN.SW",   name: "Nestle",         sector: "consumer",     active: true }
+    - { symbol: "SHEL.L",    name: "Shell",          sector: "oil_gas",      active: true }
+
+asia:
+  benchmark: "^HSI"
+  weight: 0.15
+  tickers:
+    - { symbol: "^HSI",      name: "Hang Seng",      sector: "index",        active: true }
+    - { symbol: "^N225",     name: "Nikkei 225",     sector: "index",        active: true }
+    - { symbol: "BABA",      name: "Alibaba ADR",    sector: "ecommerce",    active: true }
+    - { symbol: "TSM",       name: "TSMC ADR",       sector: "semis",        active: true }
+    - { symbol: "0700.HK",   name: "Tencent",        sector: "tech",         active: true }
+    - { symbol: "9988.HK",   name: "Alibaba HK",     sector: "ecommerce",    active: true }
+    - { symbol: "USDCNY=X",  name: "USD/CNY",        sector: "fx",           active: true }
+    - { symbol: "USDJPY=X",  name: "USD/JPY",        sector: "fx",           active: true }

@@ -1,133 +1,123 @@
 # FIN-TRADER
 
-Sistema autônomo de geração de sinais de trading e brief diário em Markdown, executado por GitHub Actions, com persistência de histórico em SQLite.
+Sistema autônomo de geração de sinais de trade quantitativos com foco no mercado brasileiro, secundários EUA e Europa, e contextual Ásia. Roda inteiramente em GitHub Actions, sem dependência de plataformas de IA em runtime — todo o "agente" é código Python determinístico.
 
-## Objetivo
+Sistema irmão do [FIN-BOT](https://github.com/Mauricio1806/FIN-BOT), focado em geração de sinais (este) vs. monitoramento contínuo (FIN-BOT).
 
-O FIN-TRADER roda diariamente no fechamento do mercado brasileiro (18:00 BRT), coleta dados de mercado e macro, calcula 6 camadas de análise técnica/sentimento, produz um score composto por ativo e gera um brief objetivo em português.
+## O que faz
 
-## Arquitetura
+A cada execução agendada (5 janelas diárias), o FIN-TRADER:
 
-```text
-src/main.py
-  ├── src/collector.py   -> Coleta yfinance + BCB SGS
-  ├── src/indicators.py  -> 6 camadas de score [-1, +1]
-  ├── src/scorer.py      -> Agregação, classificação e top contribuições
-  ├── src/brief.py       -> Geração de markdown
-  └── src/db.py          -> Persistência SQLite + histórico 90d
-```
+1. Coleta cotações de ~48 ativos (B3, US, EU, Ásia) via yfinance
+2. Coleta dados macroeconômicos do Banco Central (Selic, IPCA, USD/BRL, IBC-Br) e globais (VIX, Treasury 10Y, DXY)
+3. Calcula 12 camadas analíticas por ticker
+4. Combina em score composto ponderado, com boost regional (BR +10%)
+5. Classifica cada ativo: BUY / WATCH_LONG / NEUTRAL / WATCH_SHORT / SELL_AVOID
+6. Sugere alocação % de portfólio, stop e alvo baseados em ATR
+7. Mantém portfólio paper-trading em % (sem capital fixo) para validar hit-rate
+8. Gera Daily Brief em Markdown na pasta `reports/`
+9. Publica via GitHub Pages no dashboard `https://mauricio1806.github.io/FIN-TRADER/`
+10. Opcionalmente notifica via Telegram
 
-### Fluxo de execução
+## As 12 camadas analíticas
 
-1. Carrega `config/watchlist.yaml`.
-2. Coleta preços (yfinance) com retry e backoff exponencial.
-3. Coleta macro do BCB (SGS 432, 13522, 1).
-4. Calcula camadas e score composto por ticker.
-5. Detecta drift de score médio (> 2σ vs média 90d).
-6. Gera brief em `reports/`.
-7. Salva sinais em `db/signals.db` (idempotente por hash).
-8. Tenta commit local de `reports/` e `db/`.
+| # | Camada | Cálculo |
+|---|---|---|
+| 1 | Tendência longa | Preço vs SMA200 + slope 60d |
+| 2 | Tendência média | EMA20/50 + MACD histogram |
+| 3 | Momentum | RSI(14) + ROC(20) |
+| 4 | Volatilidade | ATR% + Bollinger bandwidth |
+| 5 | Volume | OBV + volume vs SMA20 |
+| 6 | Suporte/Resistência | Posição vs máx/mín 52 semanas |
+| 7 | Correlação | Beta rolling 60d vs benchmark regional |
+| 8 | Macro | Sensibilidade a juros/câmbio |
+| 9 | Sazonalidade | Retorno médio histórico do mês corrente |
+| 10 | Estatística | Sharpe rolling 90d + skewness |
+| 11 | Risco de cauda | Max drawdown + VaR 95% |
+| 12 | Sentimento | VIX/breadth da região |
 
-## Estrutura do brief
+Pesos configuráveis em `config/weights.yaml`.
 
-O markdown gerado segue as seções:
+## Janelas de execução
 
-- `TL;DR`
-- `Brasil (foco)`
-- `US (secundário)`
-- `Macro Snapshot`
-- `Próxima Agenda`
+Brasil não usa horário de verão; UTC = BRT + 3.
 
-Formato compacto, sem emojis, linguagem direta.
-
-## Regras de classificação
-
-- `BUY`: score >= 0.4
-- `WATCH_LONG`: 0.1 <= score < 0.4
-- `NEUTRAL`: -0.1 <= score < 0.1
-- `WATCH_SHORT`: -0.4 < score < -0.1
-- `SELL_AVOID`: score <= -0.4
-
-## Camadas de análise
-
-Todas retornam score no intervalo `[-1, +1]`:
-
-1. `trend_long`: preço vs SMA200 + inclinação da SMA200.
-2. `trend_mid`: EMA20 vs EMA50 + histograma MACD.
-3. `momentum`: RSI(14) + ROC(20).
-4. `volatility`: ATR(14) + largura de Bollinger.
-5. `volume_strength`: tendência do OBV + volume atual vs SMA20.
-6. `macro_sentiment`: normalização de VIX e USD/BRL.
-
-## Pesos (score composto)
-
-Por padrão, pesos iguais (1/6 cada camada) em `src/scorer.py`:
-
-```python
-LAYER_WEIGHTS = {
-    "trend_long": 1/6,
-    "trend_mid": 1/6,
-    "momentum": 1/6,
-    "volatility": 1/6,
-    "volume_strength": 1/6,
-    "macro_sentiment": 1/6,
-}
-```
-
-### Como customizar pesos
-
-1. Edite `LAYER_WEIGHTS` em `src/scorer.py`.
-2. Garanta que a soma seja `1.0`.
-3. Execute localmente para validar impacto no score/classificação.
+| Workflow | BRT | UTC Cron | Foco |
+|---|---|---|---|
+| `pre_market.yml` | 09:00 | `0 12 * * 1-5` | Pré-abertura B3, Ásia fechada, Europa abrindo |
+| `mid_morning.yml` | 11:30 | `30 14 * * 1-5` | 1h30 pós-abertura B3 |
+| `afternoon.yml` | 14:30 | `30 17 * * 1-5` | US recém-aberto, Europa fechando |
+| `close_br.yml` | 18:00 | `0 21 * * 1-5` | Fechamento B3 — relatório principal |
+| `close_us.yml` | 19:00 | `0 22 * * 1-5` | Pós-fechamento US — wrap-up global |
 
 ## Rodando localmente
 
-### 1) Pré-requisitos
+Pré-requisitos: Python 3.12+, git.
 
-- Python 3.12+
-- Git
-- Acesso à internet para yfinance e BCB API
-
-### 2) Instalação
-
-```bash
+```powershell
 git clone https://github.com/Mauricio1806/FIN-TRADER.git
 cd FIN-TRADER
 python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
+.\.venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### 3) Execução
-
-```bash
 python -m src.main --window close_br
 ```
 
-Saídas esperadas:
-- Brief em `reports/brief_YYYYMMDD_HHMM.md`
-- Banco SQLite em `db/signals.db`
+Após a execução, o brief estará em `reports/YYYY-MM-DD_HHMM_close_br.md`.
 
-## GitHub Actions
+## Configuração
 
-Workflow em `.github/workflows/close_br.yml`:
-- Cron: `0 21 * * 1-5` (21:00 UTC = 18:00 BRT)
-- Executa pipeline
-- Commit/push automático de `reports/` e `db/`
+### Secrets do GitHub (opcionais)
 
-## Banco de dados
+Em `Settings → Secrets and variables → Actions`:
 
-Tabela `signals`:
-- `id`
-- `ticker`
-- `timestamp`
-- `score`
-- `classification`
-- `top_layers` (JSON)
-- `data_hash` (UNIQUE para idempotência)
+- `TELEGRAM_TOKEN`: token do bot do Telegram
+- `TELEGRAM_CHAT_ID`: chat ID para receber notificações
+- `WEBHOOK_URL`: URL HTTPS para POST do payload do brief
 
-## Observações de operação
+Sistema opera sem nenhum desses configurados.
 
-- O pipeline é resiliente a falhas pontuais de coleta via retries.
-- Drift detection só dispara após base histórica mínima.
-- Recomendado revisar periodicamente watchlist e pesos por regime de mercado.
+### Personalizando a watchlist
+
+Edite `config/watchlist.yaml`. Marque `active: false` para desativar um ticker sem removê-lo. Ajuste `weight` por região.
+
+### Personalizando pesos das camadas
+
+Edite `config/weights.yaml`. Os pesos não precisam somar 1 (são normalizados). Aumente pesos das camadas em que você confia mais para o seu estilo.
+
+## Estrutura do brief
+
+Cada brief inclui:
+
+1. **TL;DR** — regime, top 3 sinais BR, evento principal
+2. **Brasil (Foco Principal)** — macro BR, sinais por classificação, reversões
+3. **EUA (Secundário)** — sinais compactos
+4. **Europa (Secundário)** — sinais compactos
+5. **Ásia (Contextual)** — sinais compactos
+6. **Macro Global** — VIX, Treasury, DXY, índices, FX
+7. **Portfólio Simulado** — hit-rate, retorno acumulado, exposição atual
+8. **Agenda do Próximo Pregão**
+9. **Anomalias / Data Quality**
+
+## Dashboard
+
+`https://mauricio1806.github.io/FIN-TRADER/`
+
+HTML estático servido via GitHub Pages, lista todos os briefs em `reports/` e renderiza markdown com tabelas estilizadas. Sem build, sem backend, atualização automática quando workflow commita novo brief.
+
+## Schema SQLite
+
+Banco em `db/signals.db`:
+
+- `signals` — todos os sinais com camadas e classificação
+- `positions_simulated` — paper trading em %
+- `macro_snapshots` — séries macro por região
+- `daily_briefs` — índice de briefs gerados
+- `data_quality_checks` — anomalias detectadas
+- `errors_log` — exceções não-fatais
+
+## Modelo
+
+Versão: `0.2.0`
+
+Todo sinal carrega `data_hash` (SHA256 dos preços usados) e `model_version` para auditoria.

@@ -1,8 +1,8 @@
-name: Close BR (18:00 BRT)
+name: Pre-Market BR (09:00 BRT)
 
 on:
   schedule:
-    - cron: '0 21 * * 1-5'
+    - cron: '0 12 * * 1-5'
   workflow_dispatch:
 
 permissions:
@@ -26,12 +26,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run FIN-TRADER (close_br)
+      - name: Run FIN-TRADER (pre_market)
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
-        run: python -m src.main --window close_br
+        run: python -m src.main --window pre_market
 
       - name: Commit and push briefs
         run: |
@@ -39,5 +39,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add reports/ db/ || true
           git diff --cached --quiet && echo "Sem mudanças" && exit 0
-          git commit -m "auto: close_br brief $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git commit -m "auto: pre_market brief $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push

@@ -1,153 +1,190 @@
-from __future__ import annotations
-
+"""Orquestrador FIN-TRADER. Entry-point dos workflows."""
 import argparse
+import json
 import logging
-import subprocess
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, List
-from zoneinfo import ZoneInfo
-
-import yaml
-
+from .config import (
+    load_watchlist, load_weights, all_active_tickers,
+    active_tickers_by_region, DB_PATH,
+)
+from .db import init_db, conn
+from .collector import fetch_prices, data_hash
+from .scorer import score_ticker
+from .macro import collect_macro
+from .portfolio import (
+    evaluate_open_positions, open_position, portfolio_metrics,
+    open_positions_summary,
+)
+from .quality import check_data_quality
 from .brief import generate_brief
-from .collector import fetch_bcb_macro, fetch_prices
-from .db import get_historical_avg, save_signals
-from .scorer import compute_score
+from .notifier import notify_brief
+from . import __version__
 
-LOGGER = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger("fin-trader")
 
 
-def setup_logging() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+def build_agenda(window: str, macro: dict) -> list[str]:
+    """Agenda do próximo pregão. Conservadora: combina padrões fixos + sinais macro."""
+    items = []
+    now = datetime.now()
+    weekday = now.weekday()
+    next_day_label = "amanhã" if weekday < 4 else "segunda"
+
+    if macro["br"].get("selic") and macro["br"]["selic"] > 13:
+        items.append(f"Selic em {macro['br']['selic']:.2f}% — monitorar cenário fiscal e Focus")
+    if macro["us"].get("vix") and macro["us"]["vix"] > 22:
+        items.append(f"VIX em {macro['us']['vix']:.1f} — volatilidade elevada nos EUA")
+    if macro["br"].get("usdbrl"):
+        items.append(f"USD/BRL em {macro['br']['usdbrl']:.4f} — atenção a fluxo cambial")
+    if window == "close_br":
+        items.append(f"Após o fechamento US ({next_day_label} pré-mercado BR): "
+                     "reavaliar viés de abertura")
+    elif window == "pre_market":
+        items.append("Acompanhar abertura B3 às 10:00 BRT e fluxo estrangeiro")
+    elif window == "close_us":
+        items.append(f"Pré-abertura B3 ({next_day_label}): observar futuros do Ibovespa")
+    if not items:
+        items.append("Sem eventos macro de destaque programados.")
+    return items
+
+
+def persist_signals(window: str, results: dict, dhash: str):
+    rows = []
+    ts = datetime.utcnow().isoformat()
+    for region, sigs in results.items():
+        for s in sigs:
+            rows.append((
+                ts, window, s["ticker"], region, s["score"], s["classification"],
+                json.dumps(s["layers"]), s["price"], s["atr"],
+                s["suggested_alloc_pct"], s["stop_pct"], s["target_pct"],
+                dhash, __version__,
+            ))
+    if rows:
+        with conn() as c:
+            c.executemany(
+                "INSERT INTO signals (ts_utc, window, ticker, region, score, "
+                "classification, layers_json, price, atr, suggested_alloc_pct, "
+                "stop_pct, target_pct, data_hash, model_version) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                rows,
+            )
+
+
+def persist_macro(macro: dict):
+    ts = datetime.utcnow().isoformat()
+    rows = []
+    for region in ("br", "us", "eu", "asia"):
+        for ind, val in macro[region].items():
+            if val is not None:
+                rows.append((ts, region, ind, float(val), "live"))
+    if rows:
+        with conn() as c:
+            try:
+                c.executemany(
+                    "INSERT OR REPLACE INTO macro_snapshots (ts_utc, region, indicator, value, source) "
+                    "VALUES (?,?,?,?,?)",
+                    rows,
+                )
+            except Exception as e:
+                log.warning("Falha persist macro: %s", e)
+
+
+def run(window: str, dry_run: bool = False):
+    log.info("FIN-TRADER v%s starting | window=%s", __version__, window)
+    init_db()
+
+    wl = load_watchlist()
+    weights = load_weights()
+    by_region = active_tickers_by_region(wl)
+    all_tickers = [t for ts in by_region.values() for t in ts]
+    benchmarks = {r: wl[r]["benchmark"] for r in by_region}
+
+    log.info("Coletando preços para %d tickers...", len(all_tickers))
+    prices = fetch_prices(all_tickers, period="2y")
+    log.info("Preços recebidos: %d/%d", len(prices), len(all_tickers))
+
+    anomalies = check_data_quality(prices)
+    log.info("Anomalias: %d", len(anomalies))
+
+    log.info("Coletando macro...")
+    macro = collect_macro()
+    persist_macro(macro)
+
+    log.info("Calculando scores...")
+    results_by_region: dict[str, list] = {"br": [], "us": [], "eu": [], "asia": []}
+    latest_prices = {}
+    latest_scores = {}
+    for region, tickers in by_region.items():
+        bench_symbol = benchmarks[region]
+        bench_df = prices.get(bench_symbol)
+        for ticker in tickers:
+            df = prices.get(ticker)
+            if df is None or len(df) < 30:
+                continue
+            try:
+                res = score_ticker(df, region, bench_df, macro["context"], weights)
+                res["ticker"] = ticker
+                results_by_region[region].append(res)
+                latest_prices[ticker] = res["price"]
+                latest_scores[ticker] = res["score"]
+            except Exception as e:
+                log.warning("Falha scoring %s: %s", ticker, e)
+
+    dhash = data_hash(prices)
+
+    if not dry_run:
+        persist_signals(window, results_by_region, dhash)
+
+        log.info("Avaliando posições abertas...")
+        closures = evaluate_open_positions(latest_prices, latest_scores)
+
+        for region, sigs in results_by_region.items():
+            for s in sigs:
+                if s["score"] >= 0.5 and s["suggested_alloc_pct"] >= 1.0:
+                    open_position(
+                        s["ticker"], region, s["price"], s["score"],
+                        s["suggested_alloc_pct"], s["stop_pct"], s["target_pct"],
+                    )
+    else:
+        closures = []
+
+    metrics = portfolio_metrics()
+    exposure = open_positions_summary()
+    agenda = build_agenda(window, macro)
+
+    path = generate_brief(
+        window=window,
+        signals_by_region=results_by_region,
+        macro=macro,
+        closures=closures,
+        metrics=metrics,
+        exposure_summary=exposure,
+        anomalies=anomalies,
+        agenda=agenda,
     )
+    log.info("Brief gerado: %s", path)
+
+    if not dry_run:
+        summary_lines = [f"*FIN-TRADER {window}*", ""]
+        for s in sorted(results_by_region["br"], key=lambda x: -x["score"])[:5]:
+            summary_lines.append(f"`{s['ticker']}` {s['score']:+.2f} {s['classification']}")
+        summary_lines.append("")
+        summary_lines.append(f"Brief: `reports/{path.name}`")
+        notify_brief("\n".join(summary_lines), str(path),
+                     "https://github.com/Mauricio1806/FIN-TRADER")
+
+    print(f"OK brief={path.name} signals_total={sum(len(v) for v in results_by_region.values())}")
+    return path
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="FIN-TRADER pipeline")
-    parser.add_argument("--window", default="close_br", choices=["close_br"])
-    parser.add_argument("--watchlist", default="config/watchlist.yaml")
-    parser.add_argument("--db-path", default="db/signals.db")
-    return parser.parse_args()
-
-
-def load_watchlist(path: str) -> Dict[str, List[str]]:
-    with open(path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-
-    required = {"brasil", "usa", "macro"}
-    missing = required - set(data.keys())
-    if missing:
-        raise ValueError(f"Watchlist inválida. Chaves ausentes: {sorted(missing)}")
-
-    return data
-
-
-def detect_drift(current_avg: float, historical: Dict) -> str | None:
-    if historical["count"] < 20 or historical["std"] <= 0:
-        return None
-
-    diff = abs(current_avg - historical["avg"])
-    threshold = 2 * historical["std"]
-    if diff > threshold:
-        return (
-            f"score médio atual ({current_avg:+.3f}) distante da média 90d "
-            f"({historical['avg']:+.3f}) em {diff:.3f} (> 2σ={threshold:.3f})."
-        )
-    return None
-
-
-def commit_artifacts() -> None:
-    try:
-        subprocess.run(["git", "add", "reports/", "db/"], check=False)
-        commit_msg = f"chore: daily brief {datetime.utcnow().isoformat()}"
-        subprocess.run(["git", "commit", "-m", commit_msg], check=False)
-        LOGGER.info("Tentativa de commit local executada.")
-    except Exception as exc:  # noqa: BLE001
-        LOGGER.warning("Falha ao executar git commit automático: %s", exc)
-
-
-def run() -> None:
-    args = parse_args()
-    setup_logging()
-
-    LOGGER.info("Iniciando FIN-TRADER com janela: %s", args.window)
-    tz = ZoneInfo("America/Sao_Paulo")
-    now = datetime.now(tz)
-
-    watchlist = load_watchlist(args.watchlist)
-    ticker_regions = {
-        **{t: "brasil" for t in watchlist["brasil"]},
-        **{t: "usa" for t in watchlist["usa"]},
-    }
-
-    price_tickers = list(dict.fromkeys(watchlist["brasil"] + watchlist["usa"] + watchlist["macro"]))
-    price_data = fetch_prices(price_tickers)
-    macro_bcb = fetch_bcb_macro()
-
-    vix = float(price_data["^VIX"]["Close"].iloc[-1])
-    usdbrl_yf = float(price_data["USDBRL=X"]["Close"].iloc[-1])
-    selic = float(macro_bcb["selic"].iloc[-1])
-    ipca = float(macro_bcb["ipca"].iloc[-1])
-    usdbrl_bcb = float(macro_bcb["usdbrl_bcb"].iloc[-1])
-
-    macro_snapshot = {
-        "vix": vix,
-        "usdbrl": usdbrl_yf,
-        "selic": selic,
-        "ipca": ipca,
-        "usdbrl_bcb": usdbrl_bcb,
-    }
-
-    historical = get_historical_avg(db_path=args.db_path)
-
-    signals = []
-    for ticker, region in ticker_regions.items():
-        try:
-            score_output = compute_score(
-                ticker_df=price_data[ticker],
-                macro_data={"vix": vix, "usdbrl": usdbrl_yf},
-            )
-            signals.append(
-                {
-                    "ticker": ticker,
-                    "region": region,
-                    "timestamp": now.isoformat(),
-                    **score_output,
-                }
-            )
-        except Exception as exc:  # noqa: BLE001
-            LOGGER.exception("Falha no cálculo para %s: %s", ticker, exc)
-
-    if not signals:
-        raise RuntimeError("Nenhum sinal foi gerado.")
-
-    current_avg = sum(s["score"] for s in signals) / len(signals)
-    drift_alert = detect_drift(current_avg, historical)
-    if drift_alert:
-        LOGGER.warning("DRIFT DETECTED: %s", drift_alert)
-        macro_snapshot["drift_alert"] = drift_alert
-
-    report_md = generate_brief(signals=signals, macro_snapshot=macro_snapshot, timestamp=now)
-    reports_dir = Path("reports")
-    reports_dir.mkdir(parents=True, exist_ok=True)
-    report_path = reports_dir / f"brief_{now.strftime('%Y%m%d_%H%M')}.md"
-    report_path.write_text(report_md, encoding="utf-8")
-
-    inserted = save_signals(signals=signals, db_path=args.db_path)
-    LOGGER.info("Brief salvo em %s | sinais inseridos: %s", report_path, inserted)
-
-    commit_artifacts()
-
-
-def main() -> None:
-    try:
-        run()
-    except Exception as exc:  # noqa: BLE001
-        logging.exception("Erro fatal no pipeline: %s", exc)
-        raise
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--window", required=True,
+                   choices=["pre_market", "mid_morning", "afternoon", "close_br", "close_us"])
+    p.add_argument("--dry-run", action="store_true")
+    args = p.parse_args()
+    run(args.window, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":

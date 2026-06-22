@@ -1,0 +1,32 @@
+# Pesos das 12 camadas do scorer composto.
+# Score final = soma(score_camada * peso) / soma(pesos), normalizado em [-1, +1].
+# Soma dos pesos não precisa ser 1 — é normalizada.
+
+layers:
+  trend_long:        1.2   # Tendência longa (SMA200) — peso reforçado, viés do regime
+  trend_mid:         1.0   # Tendência média (EMA20/50 + MACD)
+  momentum:          1.0   # RSI + ROC
+  volatility:        0.8   # ATR% + Bollinger bandwidth
+  volume:            0.7   # OBV + volume vs SMA20
+  support_resist:    0.8   # Distância de máxima/mínima 52w
+  correlation:       0.6   # Beta vs benchmark da região
+  macro:             1.0   # Sensibilidade a juros/câmbio
+  seasonality:       0.5   # Retorno médio histórico do mês corrente
+  statistical:       0.8   # Sharpe rolling + skewness
+  tail_risk:         0.9   # Max drawdown + VaR 95%
+  sentiment:         0.7   # VIX/breadth da região
+
+# Multiplicador de convicção regional (aplicado ao score final por região).
+# Brasil ganha leve boost para refletir foco do operador.
+regional_boost:
+  br:   1.10
+  us:   1.00
+  eu:   1.00
+  asia: 0.95
+
+# Limiares de classificação.
+thresholds:
+  buy_strong:   0.40
+  buy_watch:    0.10
+  sell_watch:  -0.10
+  sell_strong: -0.40
