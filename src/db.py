@@ -1,4 +1,4 @@
-"""SQLite schema e helpers."""
+"""SQLite schema e helpers, com auto-migração de schema legado."""
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -80,9 +80,46 @@ CREATE TABLE IF NOT EXISTS errors_log (
 );
 """
 
+EXPECTED_SIGNALS_COLS = {
+    "id", "ts_utc", "window", "ticker", "region", "score", "classification",
+    "layers_json", "price", "atr", "suggested_alloc_pct", "stop_pct",
+    "target_pct", "data_hash", "model_version",
+}
+
+
+def _schema_compatible() -> bool:
+    """Verifica se o DB existente tem schema compatível com v0.2."""
+    if not DB_PATH.exists():
+        return True
+    try:
+        with sqlite3.connect(DB_PATH) as c:
+            cur = c.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='signals'"
+            )
+            if not cur.fetchone():
+                return True
+            cur = c.execute("PRAGMA table_info(signals)")
+            cols = {r[1] for r in cur.fetchall()}
+        return EXPECTED_SIGNALS_COLS.issubset(cols)
+    except Exception:
+        return False
+
 
 def init_db() -> None:
     DB_DIR.mkdir(parents=True, exist_ok=True)
+    if not _schema_compatible():
+        backup = DB_PATH.with_suffix(".legacy.db")
+        try:
+            if backup.exists():
+                backup.unlink()
+            DB_PATH.rename(backup)
+            print(f"[db] schema legado detectado; movido para {backup.name}")
+        except Exception:
+            try:
+                DB_PATH.unlink()
+                print("[db] schema legado removido")
+            except Exception:
+                pass
     with sqlite3.connect(DB_PATH) as conn:
         conn.executescript(SCHEMA)
 
