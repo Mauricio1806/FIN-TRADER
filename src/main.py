@@ -37,13 +37,25 @@ def build_agenda(window: str, macro: dict) -> list[str]:
         items.append(f"VIX em {macro['us']['vix']:.1f} — volatilidade elevada nos EUA")
     if macro["br"].get("usdbrl"):
         items.append(f"USD/BRL em {macro['br']['usdbrl']:.4f} — atenção a fluxo cambial")
-    if window == "close_br":
-        items.append(f"Após o fechamento US ({next_day_label} pré-mercado BR): "
-                     "reavaliar viés de abertura")
+    if window == "asia_close":
+        items.append("Próximo: abertura europeia (Frankfurt 04:00 BRT, Londres 05:00 BRT) "
+                     "— observar reação ao fechamento asiático")
+    elif window == "europe_open":
+        items.append("Próximo: abertura B3 às 10:00 BRT — verificar futuros e fluxo estrangeiro")
     elif window == "pre_market":
         items.append("Acompanhar abertura B3 às 10:00 BRT e fluxo estrangeiro")
+    elif window == "mid_morning":
+        items.append("Próximo: abertura US às 10:30 BRT — atenção a futuros e earnings pré-mercado")
+    elif window == "afternoon":
+        items.append("Próximo: fechamento Europa em torno de 13:30 BRT, fechamento B3 às 18:00 BRT")
+    elif window == "close_br":
+        items.append(f"Próximo: fechamento US ({next_day_label} pré-mercado BR): "
+                     "reavaliar viés de abertura")
     elif window == "close_us":
-        items.append(f"Pré-abertura B3 ({next_day_label}): observar futuros do Ibovespa")
+        items.append(f"Próximo: pré-abertura B3 ({next_day_label}) — observar futuros do Ibovespa")
+    elif window == "daily_wrap":
+        items.append("Consolidado do dia completo. Próxima janela: abertura asiática "
+                     f"({next_day_label} ~05:00 BRT)")
     if not items:
         items.append("Sem eventos macro de destaque programados.")
     return items
@@ -181,7 +193,7 @@ def run(window: str, dry_run: bool = False):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--window", required=True,
-                   choices=["pre_market", "mid_morning", "afternoon", "close_br", "close_us"])
+                   choices=["asia_close", "europe_open", "pre_market", "mid_morning", "afternoon", "close_br", "close_us", "daily_wrap"])
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
     run(args.window, dry_run=args.dry_run)

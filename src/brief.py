@@ -14,11 +14,14 @@ from . import __version__
 BRT = ZoneInfo("America/Bahia")
 
 WINDOW_LABELS = {
+    "asia_close": "Fechamento Ásia + Pré-Europa",
+    "europe_open": "Abertura Europa + Pré-BR",
     "pre_market": "Pré-Abertura B3",
     "mid_morning": "Meio da Manhã",
     "afternoon": "Tarde Cross-Asset",
     "close_br": "Fechamento B3",
     "close_us": "Pós-Fechamento US",
+    "daily_wrap": "Consolidado do Dia",
 }
 
 
@@ -194,6 +197,80 @@ def _leitura_geral(signals_by_region: dict, macro: dict, name_map: dict) -> str:
     return "\n\n".join(paragraphs) + "\n"
 
 
+def _daily_wrap_section(signals_by_region: dict, sector_map: dict) -> str:
+    """Seção exclusiva do daily_wrap: consolida e narra o dia inteiro."""
+    from .db import conn as db_conn
+    from datetime import datetime, timedelta
+
+    today = datetime.utcnow().date()
+    today_start = datetime(today.year, today.month, today.day).isoformat()
+
+    lines = []
+    try:
+        with db_conn() as c:
+            rows = c.execute(
+                "SELECT window, COUNT(*) as n, AVG(score) as avg_score "
+                "FROM signals WHERE ts_utc >= ? GROUP BY window ORDER BY MIN(ts_utc)",
+                (today_start,)
+            ).fetchall()
+
+        if rows:
+            lines.append("### Janelas Executadas Hoje\n")
+            lines.append("| Janela | Sinais Gerados | Score Médio |")
+            lines.append("|---|---|---|")
+            for r in rows:
+                w_label = WINDOW_LABELS.get(r["window"], r["window"])
+                lines.append(f"| {w_label} | {r['n']} | {r['avg_score']:+.3f} |")
+            lines.append("")
+
+        with db_conn() as c:
+            class_rows = c.execute(
+                "SELECT ticker, region, classification, score "
+                "FROM signals WHERE ts_utc >= ? "
+                "ORDER BY ticker, ts_utc",
+                (today_start,)
+            ).fetchall()
+
+        ticker_history = {}
+        for r in class_rows:
+            ticker_history.setdefault(r["ticker"], []).append({
+                "class": r["classification"], "score": r["score"], "region": r["region"]
+            })
+
+        flipped = []
+        for ticker, hist in ticker_history.items():
+            if len(hist) < 2:
+                continue
+            first_class = hist[0]["class"]
+            last_class = hist[-1]["class"]
+            if first_class != last_class:
+                flipped.append({
+                    "ticker": ticker, "region": hist[0]["region"],
+                    "from": first_class, "to": last_class,
+                    "first_score": hist[0]["score"], "last_score": hist[-1]["score"],
+                })
+
+        if flipped:
+            lines.append("### Mudanças de Classificação ao Longo do Dia\n")
+            lines.append("| Ticker | Região | De | Para | Δ Score |")
+            lines.append("|---|---|---|---|---|")
+            for f in sorted(flipped, key=lambda x: abs(x["last_score"] - x["first_score"]),
+                            reverse=True)[:15]:
+                delta = f["last_score"] - f["first_score"]
+                lines.append(
+                    f"| {f['ticker']} | {f['region'].upper()} | {f['from']} | "
+                    f"{f['to']} | {delta:+.3f} |"
+                )
+            lines.append("")
+        else:
+            lines.append("_Nenhuma mudança de classificação relevante no dia._\n")
+
+    except Exception as e:
+        lines.append(f"_Histórico do dia indisponível: {e}_\n")
+
+    return "\n".join(lines) + "\n"
+
+
 def generate_brief(
     window: str,
     signals_by_region: dict,
@@ -216,6 +293,11 @@ def generate_brief(
 
     md = []
     md.append(f"# FIN-TRADER Brief — {now_brt.strftime('%d/%m/%Y %H:%M BRT')} — {window_label}\n")
+
+    if window == "daily_wrap":
+        md.append("## Consolidado do Dia\n")
+        md.append("_Resumo das janelas executadas hoje, com análise de mudanças de classificação ao longo do dia._\n\n")
+        md.append(_daily_wrap_section(signals_by_region, sector_map))
 
     # Seção 1: Leitura Geral
     md.append("## Leitura Geral\n")
