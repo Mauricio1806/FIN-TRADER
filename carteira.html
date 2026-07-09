@@ -6,46 +6,21 @@
 <meta name="theme-color" content="#0a0a0a" />
 <title>FIN-TRADER — Carteira</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   :root {
-    --bg: #0a0a0a;
-    --panel: #111111;
-    --border: #1f1f1f;
-    --text: #e5e5e5;
-    --muted: #737373;
-    --accent: #22c55e;
-    --accent-dim: #166534;
-    --rv: #22c55e;
-    --rv-int: #14b8a6;
-    --rv-br: #eab308;
-    --rf: #3b82f6;
-    --rf-ipca: #6366f1;
-    --rf-selic: #a855f7;
+    --bg: #0a0a0a; --panel: #111111; --border: #1f1f1f; --text: #e5e5e5;
+    --muted: #737373; --accent: #22c55e; --accent-dim: #166534;
+    --rv-int: #14b8a6; --rv-br: #eab308; --rf-ipca: #6366f1; --rf-selic: #a855f7;
   }
   * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, monospace;
-    min-height: 100vh;
-    min-height: 100dvh;
-  }
+  body { background: var(--bg); color: var(--text); font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, monospace; min-height: 100vh; min-height: 100dvh; }
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
   .card-header { padding: 0.875rem 1.125rem; border-bottom: 1px solid var(--border); }
   .card-body { padding: 1.125rem; }
-  input, textarea, select {
-    background: #0d0d0d; border: 1px solid var(--border); color: var(--text);
-    padding: 0.5rem 0.75rem; border-radius: 4px; font-family: inherit; font-size: 0.9rem;
-    width: 100%;
-  }
-  input:focus, textarea:focus, select:focus {
-    outline: none; border-color: var(--accent);
-  }
-  button {
-    background: var(--accent-dim); color: white; border: 1px solid var(--accent);
-    padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-family: inherit;
-    font-size: 0.85rem; font-weight: 600; transition: background 0.15s ease;
-  }
+  input, textarea, select { background: #0d0d0d; border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 4px; font-family: inherit; font-size: 0.9rem; width: 100%; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  button { background: var(--accent-dim); color: white; border: 1px solid var(--accent); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: 600; transition: background 0.15s ease; }
   button:hover { background: var(--accent); }
   button.secondary { background: transparent; border-color: var(--border); color: var(--text); }
   button.secondary:hover { background: #181818; }
@@ -69,14 +44,27 @@
   .pill-rv-br { background: rgba(234, 179, 8, 0.15); color: #fde047; }
   .pill-rf-ipca { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; }
   .pill-rf-selic { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; }
+  .pill-score-buy { background: rgba(34, 197, 94, 0.15); color: #86efac; }
+  .pill-score-watch { background: rgba(59, 130, 246, 0.15); color: #93c5fd; }
+  .pill-score-neutral { background: rgba(115, 115, 115, 0.15); color: #a3a3a3; }
+  .pill-score-avoid { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
   h2 { color: var(--accent); font-weight: 600; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
   .metric { text-align: center; }
   .metric-value { font-size: 1.4rem; font-weight: 700; color: white; }
   .metric-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
-  .nav-link { padding: 0.35rem 0.75rem; font-size: 0.8rem; color: var(--muted); border-radius: 4px; text-decoration: none; transition: all 0.15s ease; }
+  .nav-link { padding: 0.35rem 0.75rem; font-size: 0.8rem; color: var(--muted); border-radius: 4px; text-decoration: none; transition: all 0.15s ease; white-space: nowrap; }
   .nav-link:hover { color: var(--text); background: #181818; }
   .nav-link.active { color: white; background: var(--accent-dim); }
   .note-preset { padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; background: #0d0d0d; border-left: 3px solid var(--accent-dim); font-size: 0.8rem; color: #a3a3a3; border-radius: 0 4px 4px 0; }
+  .buy-card { background: #0d0d0d; border: 1px solid var(--border); border-radius: 6px; padding: 0.875rem; }
+  .buy-card-title { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+  .buy-card-list { font-size: 0.8rem; color: #a3a3a3; line-height: 1.6; }
+  .buy-card-list b { color: #e5e5e5; }
+  .buy-card-note { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); font-size: 0.72rem; color: var(--muted); font-style: italic; }
+  .signal-card { background: #0d0d0d; border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  .signal-card .name { font-size: 0.75rem; color: #a3a3a3; }
+  .signal-card .ticker { font-weight: 700; color: white; font-size: 0.9rem; }
+  .signal-card .score { font-size: 1.15rem; font-weight: 700; font-family: inherit; }
   @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
   .live-dot { animation: pulse-dot 2s ease-in-out infinite; }
   @media (max-width: 768px) {
@@ -87,6 +75,7 @@
     h2 { font-size: 0.85rem; }
     table { font-size: 0.75rem; }
     th, td { padding: 0.375rem 0.5rem; }
+    .nav-link { padding: 0.3rem 0.5rem; font-size: 0.72rem; }
   }
 </style>
 </head>
@@ -106,7 +95,6 @@
 
 <main class="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
 
-  <!-- 1. Estratégia -->
   <section class="card">
     <div class="card-header flex items-center justify-between flex-wrap gap-2">
       <h2>1. Estratégia de Alocação</h2>
@@ -121,9 +109,46 @@
     </div>
   </section>
 
-  <!-- 2. Simulador de Aporte -->
   <section class="card">
-    <div class="card-header"><h2>2. Simulador de Aporte</h2></div>
+    <div class="card-header flex items-center justify-between flex-wrap gap-2">
+      <h2>2. Sinais do FIN-TRADER</h2>
+      <div class="flex items-center gap-2">
+        <span id="signalsStatus" class="text-xs text-neutral-500">Carregando…</span>
+        <button id="refreshSignals" class="secondary text-xs">↻</button>
+      </div>
+    </div>
+    <div class="card-body space-y-4">
+      <div class="text-xs text-neutral-400 leading-relaxed">
+        Contextualiza a estratégia com os sinais do FIN-TRADER. Ativos <b>equivalentes ou alternativos</b> por bucket,
+        ranqueados por score. Score positivo = viés comprador; negativo = cautela.
+        <a href="./index.html" class="text-green-400 hover:underline">Ver brief completo →</a>
+      </div>
+
+      <div>
+        <div class="flex items-center gap-2 mb-2 flex-wrap">
+          <span class="pill pill-rv-int">RV Internacional</span>
+          <span class="text-xs text-neutral-500">Proxies dos ETFs SPYI11/QQQI11 e top US</span>
+        </div>
+        <div id="signalsList_rv_int" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+      </div>
+
+      <div>
+        <div class="flex items-center gap-2 mb-2 flex-wrap">
+          <span class="pill pill-rv-br">RV Brasil</span>
+          <span class="text-xs text-neutral-500">Top ativos BR — alternativas ou complementos ao fundo</span>
+        </div>
+        <div id="signalsList_rv_br" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+      </div>
+
+      <div class="text-xs text-neutral-500 border-t border-[#1f1f1f] pt-3">
+        Categorias de RF não são cobertas pelo FIN-TRADER (que analisa RV). Para Tesouro IPCA+ e CDB/Selic,
+        consulte diretamente as taxas nas plataformas.
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header"><h2>3. Simulador de Aporte</h2></div>
     <div class="card-body space-y-4">
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
@@ -137,8 +162,9 @@
             <option value="rebalance">Priorizar rebalanceamento</option>
           </select>
         </div>
-        <div class="flex items-end">
-          <button id="simularBtn" class="w-full">Simular</button>
+        <div class="flex items-end gap-2">
+          <button id="simularBtn" class="flex-1">Simular</button>
+          <button id="limparSimBtn" class="secondary">Limpar</button>
         </div>
       </div>
       <div id="aporteResult" class="hidden">
@@ -150,10 +176,9 @@
     </div>
   </section>
 
-  <!-- 3. Posições Atuais -->
   <section class="card">
     <div class="card-header flex items-center justify-between flex-wrap gap-2">
-      <h2>3. Posições Atuais</h2>
+      <h2>4. Posições Atuais</h2>
       <button id="addPositionBtn">+ Adicionar</button>
     </div>
     <div class="card-body space-y-4">
@@ -195,10 +220,7 @@
       <div class="table-wrap">
         <table id="positionsTable">
           <thead>
-            <tr>
-              <th>Ativo</th><th>Categoria</th><th class="text-right">Valor</th>
-              <th class="text-right">% Atual</th><th>Data</th><th></th>
-            </tr>
+            <tr><th>Ativo</th><th>Categoria</th><th class="text-right">Valor</th><th class="text-right">% Atual</th><th>Data</th><th></th></tr>
           </thead>
           <tbody id="positionsBody">
             <tr><td colspan="6" class="text-center text-neutral-600 py-6">Nenhuma posição registrada. Clique em "+ Adicionar".</td></tr>
@@ -208,18 +230,92 @@
     </div>
   </section>
 
-  <!-- 4. Rebalanceamento -->
   <section class="card">
-    <div class="card-header"><h2>4. Meta vs Realidade — Gaps de Rebalanceamento</h2></div>
+    <div class="card-header"><h2>5. Meta vs Realidade — Gaps de Rebalanceamento</h2></div>
     <div class="card-body space-y-3" id="rebalanceBody">
       <div class="text-sm text-neutral-500 text-center py-6">Adicione posições pra ver os gaps.</div>
     </div>
   </section>
 
-  <!-- 5. Notas -->
+  <section class="card">
+    <div class="card-header"><h2>6. Onde Comprar</h2></div>
+    <div class="card-body space-y-3">
+      <div class="text-xs text-neutral-400 leading-relaxed">
+        Informações práticas por categoria — plataformas de acesso, custos e observações.
+        <b class="text-neutral-300">Nada aqui é recomendação;</b> confira taxas, produtos disponíveis e adequação ao seu perfil antes de operar.
+      </div>
+
+      <div class="buy-card">
+        <div class="buy-card-title">
+          <span class="pill pill-rv-int">RV Internacional</span>
+          <span class="text-xs text-neutral-500">SPYI11 / QQQI11 / IVVB11</span>
+        </div>
+        <div class="buy-card-list">
+          <b>Onde:</b> qualquer corretora com acesso à B3 (XP, Rico, Clear, BTG, Nu Invest, Toro, Órama, Inter, Warren, PicPay Invest, Ágora).<br />
+          <b>Como:</b> home broker ou app da corretora, ordem de compra normal como ação.<br />
+          <b>Custos:</b> a maioria zerou corretagem em ETFs; sem taxa de custódia na B3.<br />
+          <b>Impostos:</b> ETFs listados na B3 pagam 15% sobre lucro (sem isenção de R$20k/mês).
+        </div>
+        <div class="buy-card-note">
+          SPYI11 e QQQI11 (Investo) usam estratégia de covered call — trocam upside por distribuição mensal.
+          Se prioriza retorno total no longo prazo, IVVB11 (S&P 500 puro) pode ser mais eficiente.
+        </div>
+      </div>
+
+      <div class="buy-card">
+        <div class="buy-card-title">
+          <span class="pill pill-rv-br">RV Brasil</span>
+          <span class="text-xs text-neutral-500">Fundo Real Investor ou ações diretas</span>
+        </div>
+        <div class="buy-card-list">
+          <b>Onde (fundo):</b> XP, BTG Pactual, Órama, Warren, Genial, Icatu, Modal.<br />
+          <b>Verificar antes:</b> aplicação mínima (geralmente R$ 500 a R$ 5.000), taxa de administração e taxa de performance.<br />
+          <b>Impostos:</b> fundo de ações — 15% sobre lucro na saída, sem come-cotas.<br />
+          <b>Alternativa direta:</b> comprar ações de qualidade individualmente (WEGE3, ITUB4, ITSA4, BBAS3 etc) ou ETFs BR.
+        </div>
+        <div class="buy-card-note">
+          Fundos ativos cobram taxa em troca de gestão. Se o alfa compensa depende do fundo — vale comparar com o Ibovespa e com peers no seu horizonte.
+        </div>
+      </div>
+
+      <div class="buy-card">
+        <div class="buy-card-title">
+          <span class="pill pill-rf-ipca">RF Tesouro IPCA+</span>
+          <span class="text-xs text-neutral-500">Núcleo defensivo indexado</span>
+        </div>
+        <div class="buy-card-list">
+          <b>Onde:</b> Tesouro Direto via qualquer corretora habilitada (praticamente todas).<br />
+          <b>Custos:</b> corretagem 0% na maioria das corretoras; custódia B3 de 0.20% ao ano (isenta em saldo baixo).<br />
+          <b>Impostos:</b> tabela regressiva — 22.5% (até 180 dias) caindo até 15% (>720 dias).<br />
+          <b>Alternativa mais líquida:</b> ETFs B5P211 (IMA-B 5 curto) ou IB5M11 (IMA-B 5+ longo) — mais líquidos mas com taxa.
+        </div>
+        <div class="buy-card-note">
+          Marcação a mercado: se resgatar antes do vencimento com juros subindo, pode ter perda. Casar duration com horizonte reduz isso.
+        </div>
+      </div>
+
+      <div class="buy-card">
+        <div class="buy-card-title">
+          <span class="pill pill-rf-selic">RF CDB / Tesouro Selic</span>
+          <span class="text-xs text-neutral-500">Liquidez e reserva tática</span>
+        </div>
+        <div class="buy-card-list">
+          <b>Onde (CDBs):</b> vitrine da corretora — Nu Invest, XP, BTG, Órama, PicPay Invest, Inter etc.<br />
+          <b>O que comparar:</b> % do CDI, prazo, liquidez diária vs no vencimento, emissor.<br />
+          <b>Proteção FGC:</b> até R$ 250.000 por CPF por instituição (importante em bancos menores que pagam mais).<br />
+          <b>Onde (Tesouro Selic 2031):</b> Tesouro Direto via corretora — mesma mecânica do IPCA+.<br />
+          <b>Impostos:</b> tabela regressiva 22.5% → 15%.
+        </div>
+        <div class="buy-card-note">
+          Bancos médios (Original, BMG, C6, Daycoval etc) tendem a pagar mais que grandes bancos. FGC cobre bem esses casos.
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="card">
     <div class="card-header flex items-center justify-between">
-      <h2>5. Notas da Estratégia</h2>
+      <h2>7. Notas da Estratégia</h2>
       <span id="notesStatus" class="text-xs text-neutral-500">Salvo</span>
     </div>
     <div class="card-body space-y-3">
@@ -238,29 +334,22 @@
     </div>
   </section>
 
-  <div class="text-center text-xs text-neutral-600 py-4">
-    Dados salvos no seu navegador (localStorage). Nada é enviado ao GitHub.
-    <br />Use o mesmo navegador/dispositivo para manter o histórico.
+  <div class="text-center text-xs text-neutral-600 py-4 space-y-1">
+    <div>Dados da carteira salvos apenas no seu navegador (localStorage). Nada é enviado ao GitHub.</div>
+    <div>Nada nesta página é recomendação de investimento. Consulte um assessor autorizado antes de decidir.</div>
   </div>
 
 </main>
 
 <script>
-// ============ STATE ============
 const DEFAULT_STRATEGY = {
   rv_int:   { pct: 25, name: "RV Internacional", desc: "SPYI11 + QQQI11 — ETFs com dividendos, empresas excepcionais", color: "var(--rv-int)", pill: "pill-rv-int" },
   rv_br:    { pct: 25, name: "RV Brasil",         desc: "Fundo de ação (ex: Real Investor FIC FIF Ações)",              color: "var(--rv-br)",  pill: "pill-rv-br"  },
   rf_ipca:  { pct: 40, name: "RF Tesouro IPCA+",  desc: "Núcleo defensivo indexado à inflação",                          color: "var(--rf-ipca)", pill: "pill-rf-ipca" },
   rf_selic: { pct: 10, name: "RF CDB / Selic",    desc: "CDB ou Tesouro Selic 2031 — liquidez e reserva tática",         color: "var(--rf-selic)", pill: "pill-rf-selic" },
 };
-
 const CATEGORIES = ["rv_int", "rv_br", "rf_ipca", "rf_selic"];
-
-let state = {
-  strategy: { ...DEFAULT_STRATEGY },
-  positions: [],
-  notes: "",
-};
+let state = { strategy: { ...DEFAULT_STRATEGY }, positions: [], notes: "" };
 
 function load() {
   try {
@@ -277,34 +366,26 @@ function load() {
     }
   } catch (e) { console.warn("Load error:", e); }
 }
-
 function save() {
   try {
     const data = {
       strategy: Object.fromEntries(CATEGORIES.map(k => [k, { pct: state.strategy[k].pct }])),
-      positions: state.positions,
-      notes: state.notes,
+      positions: state.positions, notes: state.notes,
     };
     localStorage.setItem("fin_trader_carteira_v1", JSON.stringify(data));
   } catch (e) { console.warn("Save error:", e); }
 }
+function fmtBRL(v) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0); }
+function escapeHtml(s) { return String(s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
-function fmtBRL(v) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
-}
-
-// ============ RENDER: ESTRATÉGIA ============
 function renderStrategy() {
   const bar = document.getElementById("allocationBar");
   const grid = document.getElementById("strategyGrid");
-  bar.innerHTML = "";
-  grid.innerHTML = "";
+  bar.innerHTML = ""; grid.innerHTML = "";
   for (const k of CATEGORIES) {
     const s = state.strategy[k];
     const seg = document.createElement("div");
-    seg.style.width = `${s.pct}%`;
-    seg.style.background = s.color;
-    seg.textContent = `${s.pct}%`;
+    seg.style.width = `${s.pct}%`; seg.style.background = s.color; seg.textContent = `${s.pct}%`;
     bar.appendChild(seg);
     grid.innerHTML += `
       <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d]">
@@ -313,41 +394,32 @@ function renderStrategy() {
           <span class="text-lg font-bold text-white">${s.pct}%</span>
         </div>
         <div class="text-xs text-neutral-400 leading-relaxed">${s.desc}</div>
-      </div>
-    `;
+      </div>`;
   }
 }
-
 document.getElementById("editStrategy").addEventListener("click", () => {
   const current = CATEGORIES.map(k => state.strategy[k].pct).join(", ");
-  const input = prompt(
-    `Ajuste os 4 percentuais separados por vírgula (soma = 100):\nOrdem: RV Int, RV BR, RF IPCA+, RF Selic\n\nAtual: ${current}`,
-    current
-  );
+  const input = prompt(`Ajuste os 4 percentuais separados por vírgula (soma = 100):\nOrdem: RV Int, RV BR, RF IPCA+, RF Selic\n\nAtual: ${current}`, current);
   if (!input) return;
   const parts = input.split(",").map(s => parseFloat(s.trim()));
   if (parts.length !== 4 || parts.some(n => isNaN(n) || n < 0)) return alert("Formato inválido.");
   const total = parts.reduce((a, b) => a + b, 0);
   if (Math.abs(total - 100) > 0.01) return alert(`Soma = ${total}. Precisa ser 100.`);
   CATEGORIES.forEach((k, i) => state.strategy[k].pct = parts[i]);
-  save();
-  renderAll();
+  save(); renderAll();
 });
 
-// ============ RENDER: POSIÇÕES ============
 function renderPositions() {
   const body = document.getElementById("positionsBody");
   const total = state.positions.reduce((s, p) => s + (p.value || 0), 0);
   document.getElementById("metricTotal").textContent = fmtBRL(total);
   document.getElementById("metricPositions").textContent = state.positions.length;
-
   const byCategory = { rv_int: 0, rv_br: 0, rf_ipca: 0, rf_selic: 0 };
   state.positions.forEach(p => { byCategory[p.category] = (byCategory[p.category] || 0) + (p.value || 0); });
   const rvPct = total > 0 ? ((byCategory.rv_int + byCategory.rv_br) / total * 100) : 0;
   const rfPct = total > 0 ? ((byCategory.rf_ipca + byCategory.rf_selic) / total * 100) : 0;
   document.getElementById("metricRV").textContent = `${rvPct.toFixed(1)}%`;
   document.getElementById("metricRF").textContent = `${rfPct.toFixed(1)}%`;
-
   if (!state.positions.length) {
     body.innerHTML = `<tr><td colspan="6" class="text-center text-neutral-600 py-6">Nenhuma posição registrada. Clique em "+ Adicionar".</td></tr>`;
     return;
@@ -355,34 +427,25 @@ function renderPositions() {
   body.innerHTML = state.positions.map((p, idx) => {
     const s = state.strategy[p.category];
     const pct = total > 0 ? (p.value / total * 100) : 0;
-    return `
-      <tr>
-        <td class="text-white font-semibold">${escapeHtml(p.ticker)}</td>
-        <td><span class="pill ${s.pill}">${s.name}</span></td>
-        <td class="text-right">${fmtBRL(p.value)}</td>
-        <td class="text-right">${pct.toFixed(1)}%</td>
-        <td class="text-neutral-500">${p.date || "—"}</td>
-        <td class="text-right"><button class="danger text-xs" data-del="${idx}">×</button></td>
-      </tr>
-    `;
+    return `<tr>
+      <td class="text-white font-semibold">${escapeHtml(p.ticker)}</td>
+      <td><span class="pill ${s.pill}">${s.name}</span></td>
+      <td class="text-right">${fmtBRL(p.value)}</td>
+      <td class="text-right">${pct.toFixed(1)}%</td>
+      <td class="text-neutral-500">${p.date || "—"}</td>
+      <td class="text-right"><button class="danger text-xs" data-del="${idx}">×</button></td>
+    </tr>`;
   }).join("");
   body.querySelectorAll("[data-del]").forEach(btn => {
     btn.addEventListener("click", () => {
       const idx = parseInt(btn.dataset.del, 10);
       if (confirm(`Remover posição "${state.positions[idx].ticker}"?`)) {
-        state.positions.splice(idx, 1);
-        save();
-        renderAll();
+        state.positions.splice(idx, 1); save(); renderAll();
       }
     });
   });
 }
 
-function escapeHtml(s) {
-  return String(s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
-// Form de adicionar posição
 const posForm = document.getElementById("positionForm");
 document.getElementById("addPositionBtn").addEventListener("click", () => {
   posForm.classList.remove("hidden");
@@ -401,13 +464,11 @@ document.getElementById("savePositionBtn").addEventListener("click", () => {
   if (!ticker) return alert("Informe o ticker/nome.");
   if (!value || value <= 0) return alert("Informe um valor válido.");
   state.positions.push({ ticker, category, value, date });
-  save();
-  renderAll();
+  save(); renderAll();
   posForm.classList.add("hidden");
   ["posTicker", "posValue"].forEach(id => document.getElementById(id).value = "");
 });
 
-// ============ RENDER: REBALANCEAMENTO ============
 function renderRebalance() {
   const el = document.getElementById("rebalanceBody");
   const total = state.positions.reduce((s, p) => s + (p.value || 0), 0);
@@ -417,108 +478,213 @@ function renderRebalance() {
   }
   const byCategory = { rv_int: 0, rv_br: 0, rf_ipca: 0, rf_selic: 0 };
   state.positions.forEach(p => { byCategory[p.category] = (byCategory[p.category] || 0) + (p.value || 0); });
-
   const rows = CATEGORIES.map(k => {
     const s = state.strategy[k];
     const targetValue = total * s.pct / 100;
     const actualValue = byCategory[k] || 0;
     const actualPct = total > 0 ? (actualValue / total * 100) : 0;
     const gap = targetValue - actualValue;
-    const gapPct = s.pct - actualPct;
-    return { k, s, targetValue, actualValue, actualPct, gap, gapPct };
+    return { k, s, targetValue, actualValue, actualPct, gap };
   });
-
   el.innerHTML = rows.map(r => {
     const targetW = Math.min(100, r.s.pct);
     const actualW = Math.min(100, r.actualPct);
     const gapLabel = r.gap > 0 ? `Aportar +${fmtBRL(r.gap)}` : `Excedente ${fmtBRL(Math.abs(r.gap))}`;
     const gapClass = r.gap > 0 ? "text-green-400" : "text-orange-400";
-    return `
-      <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d]">
-        <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <div class="flex items-center gap-2">
-            <span class="pill ${r.s.pill}">${r.s.name}</span>
-            <span class="text-xs text-neutral-500">Meta ${r.s.pct}% · Atual ${r.actualPct.toFixed(1)}%</span>
-          </div>
-          <span class="text-xs font-semibold ${gapClass}">${gapLabel}</span>
+    return `<div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d]">
+      <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <span class="pill ${r.s.pill}">${r.s.name}</span>
+          <span class="text-xs text-neutral-500">Meta ${r.s.pct}% · Atual ${r.actualPct.toFixed(1)}%</span>
         </div>
-        <div class="gap-bar">
-          <div class="gap-bar-target" style="width: ${targetW}%; background: ${r.s.color};"></div>
-          <div class="gap-bar-actual" style="width: ${actualW}%; background: ${r.s.color};"></div>
-          <div class="gap-bar-marker" style="left: ${targetW}%;"></div>
-        </div>
+        <span class="text-xs font-semibold ${gapClass}">${gapLabel}</span>
       </div>
-    `;
+      <div class="gap-bar">
+        <div class="gap-bar-target" style="width: ${targetW}%; background: ${r.s.color};"></div>
+        <div class="gap-bar-actual" style="width: ${actualW}%; background: ${r.s.color};"></div>
+        <div class="gap-bar-marker" style="left: ${targetW}%;"></div>
+      </div>
+    </div>`;
   }).join("");
 }
 
-// ============ SIMULADOR ============
 document.getElementById("simularBtn").addEventListener("click", () => {
   const valor = parseFloat(document.getElementById("aporteValor").value);
   if (!valor || valor <= 0) return alert("Informe um valor de aporte válido.");
   const mode = document.getElementById("aporteMode").value;
   const total = state.positions.reduce((s, p) => s + (p.value || 0), 0);
   const newTotal = total + valor;
-
   let distribution = {};
   if (mode === "strategy" || total === 0) {
-    CATEGORIES.forEach(k => {
-      distribution[k] = valor * state.strategy[k].pct / 100;
-    });
+    CATEGORIES.forEach(k => { distribution[k] = valor * state.strategy[k].pct / 100; });
   } else {
-    // Rebalance mode: prioriza categorias com gap positivo
     const byCategory = { rv_int: 0, rv_br: 0, rf_ipca: 0, rf_selic: 0 };
     state.positions.forEach(p => { byCategory[p.category] = (byCategory[p.category] || 0) + (p.value || 0); });
     const targets = {};
-    CATEGORIES.forEach(k => {
-      targets[k] = newTotal * state.strategy[k].pct / 100;
-    });
+    CATEGORIES.forEach(k => { targets[k] = newTotal * state.strategy[k].pct / 100; });
     const gaps = {};
     let totalGap = 0;
     CATEGORIES.forEach(k => {
       const gap = Math.max(0, targets[k] - byCategory[k]);
-      gaps[k] = gap;
-      totalGap += gap;
+      gaps[k] = gap; totalGap += gap;
     });
     if (totalGap >= valor) {
-      // Aporte cabe dentro do gap — distribui proporcional ao gap
-      CATEGORIES.forEach(k => {
-        distribution[k] = valor * (gaps[k] / totalGap);
-      });
+      CATEGORIES.forEach(k => { distribution[k] = valor * (gaps[k] / totalGap); });
     } else {
-      // Fecha o gap todo e distribui o excesso pela estratégia
       const remainder = valor - totalGap;
-      CATEGORIES.forEach(k => {
-        distribution[k] = gaps[k] + remainder * state.strategy[k].pct / 100;
-      });
+      CATEGORIES.forEach(k => { distribution[k] = gaps[k] + remainder * state.strategy[k].pct / 100; });
     }
   }
-
   const rows = CATEGORIES.map(k => {
     const s = state.strategy[k];
     const v = distribution[k] || 0;
-    return `
-      <tr>
-        <td><span class="pill ${s.pill}">${s.name}</span></td>
-        <td class="text-neutral-400">${s.desc}</td>
-        <td class="text-right text-white font-semibold">${fmtBRL(v)}</td>
-        <td class="text-right">${(v/valor*100).toFixed(1)}%</td>
-      </tr>
-    `;
+    return `<tr>
+      <td><span class="pill ${s.pill}">${s.name}</span></td>
+      <td class="text-neutral-400">${s.desc}</td>
+      <td class="text-right text-white font-semibold">${fmtBRL(v)}</td>
+      <td class="text-right">${(v/valor*100).toFixed(1)}%</td>
+    </tr>`;
   }).join("");
-
   document.getElementById("aporteTable").innerHTML = `
     <thead><tr><th>Categoria</th><th>Ativo Sugerido</th><th class="text-right">Valor</th><th class="text-right">% Aporte</th></tr></thead>
     <tbody>${rows}
       <tr><td colspan="2" class="text-right font-bold text-neutral-500">Total</td>
         <td class="text-right text-white font-bold">${fmtBRL(valor)}</td>
         <td class="text-right font-bold">100%</td></tr>
-    </tbody>
-  `;
+    </tbody>`;
   document.getElementById("aporteResult").classList.remove("hidden");
 });
+document.getElementById("limparSimBtn").addEventListener("click", () => {
+  document.getElementById("aporteValor").value = "";
+  document.getElementById("aporteMode").value = "strategy";
+  document.getElementById("aporteResult").classList.add("hidden");
+  document.getElementById("aporteValor").focus();
+});
 
-// ============ NOTAS ============
+// ============ SINAIS DO FIN-TRADER ============
+const REPO = "Mauricio1806/FIN-TRADER";
+const REPORTS_API = `https://api.github.com/repos/${REPO}/contents/reports`;
+const REPORTS_RAW = `https://raw.githubusercontent.com/${REPO}/main/reports`;
+const RV_INT_PROXIES = ["SPY", "QQQ"];
+const RV_BR_EXCLUDE = ["^BVSP", "BRAX11.SA", "^GDAXI", "^FTSE", "^STOXX50E", "^HSI", "^N225", "^VIX"];
+
+function scoreClass(score) {
+  if (score >= 0.4) return { cls: "pill-score-buy", label: "BUY" };
+  if (score >= 0.1) return { cls: "pill-score-watch", label: "WATCH+" };
+  if (score > -0.1) return { cls: "pill-score-neutral", label: "NEUTRAL" };
+  if (score > -0.4) return { cls: "pill-score-watch", label: "WATCH-" };
+  return { cls: "pill-score-avoid", label: "AVOID" };
+}
+
+function parseBriefTables(markdown) {
+  const html = marked.parse(markdown);
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  const tables = Array.from(tmp.querySelectorAll("table"));
+  const rows = [];
+  for (const t of tables) {
+    const headers = Array.from(t.querySelectorAll("thead th, tr:first-child th, tr:first-child td"))
+      .map(th => th.textContent.trim().toLowerCase());
+    const iTicker = headers.findIndex(h => h.includes("ticker"));
+    const iScore = headers.findIndex(h => h === "score" || h.includes("score"));
+    const iName = headers.findIndex(h => h.includes("nome"));
+    const iClass = headers.findIndex(h => h.includes("classific"));
+    if (iTicker === -1 || iScore === -1) continue;
+    Array.from(t.querySelectorAll("tbody tr")).forEach(tr => {
+      const cells = Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim());
+      if (cells.length <= Math.max(iTicker, iScore)) return;
+      const ticker = cells[iTicker];
+      const scoreStr = (cells[iScore] || "").replace(/[+\s]/g, "").replace(",", ".");
+      const score = parseFloat(scoreStr);
+      if (!ticker || isNaN(score)) return;
+      rows.push({
+        ticker,
+        name: iName >= 0 ? cells[iName] : "",
+        score,
+        classification: iClass >= 0 ? cells[iClass] : "",
+      });
+    });
+  }
+  const map = new Map();
+  for (const r of rows) {
+    const cur = map.get(r.ticker);
+    if (!cur || Math.abs(r.score) > Math.abs(cur.score)) map.set(r.ticker, r);
+  }
+  return Array.from(map.values());
+}
+
+function renderSignalCard(sig) {
+  const cls = scoreClass(sig.score);
+  const scoreColor = sig.score >= 0.1 ? "#86efac" : sig.score <= -0.1 ? "#fca5a5" : "#a3a3a3";
+  return `<div class="signal-card">
+    <div style="min-width:0;">
+      <div class="ticker">${escapeHtml(sig.ticker)}</div>
+      <div class="name">${escapeHtml(sig.name || "—")}</div>
+    </div>
+    <div class="text-right" style="flex-shrink:0;">
+      <div class="score" style="color: ${scoreColor}">${sig.score >= 0 ? "+" : ""}${sig.score.toFixed(2)}</div>
+      <span class="pill ${cls.cls}" style="margin-top: 2px;">${cls.label}</span>
+    </div>
+  </div>`;
+}
+
+async function loadSignals() {
+  const status = document.getElementById("signalsStatus");
+  const listInt = document.getElementById("signalsList_rv_int");
+  const listBR = document.getElementById("signalsList_rv_br");
+  status.textContent = "Carregando…";
+  listInt.innerHTML = `<div class="text-xs text-neutral-500">…</div>`;
+  listBR.innerHTML = `<div class="text-xs text-neutral-500">…</div>`;
+  try {
+    const res = await fetch(REPORTS_API);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const files = await res.json();
+    const mds = files.filter(f => f.type === "file" && f.name.endsWith(".md"))
+                     .sort((a, b) => b.name.localeCompare(a.name));
+    if (mds.length === 0) throw new Error("Nenhum brief.");
+    const latest = mds[0];
+    const mdRes = await fetch(`${REPORTS_RAW}/${latest.name}`);
+    if (!mdRes.ok) throw new Error(`HTTP ${mdRes.status}`);
+    const md = await mdRes.text();
+    const signals = parseBriefTables(md);
+    if (signals.length === 0) throw new Error("Nenhum sinal extraído.");
+
+    const rvIntSignals = [];
+    for (const proxy of RV_INT_PROXIES) {
+      const sig = signals.find(s => s.ticker === proxy || s.ticker.startsWith(proxy + "."));
+      if (sig) rvIntSignals.push(sig);
+    }
+    const topUS = signals
+      .filter(s => !RV_INT_PROXIES.includes(s.ticker))
+      .filter(s => !s.ticker.endsWith(".SA") && !s.ticker.startsWith("^") && !s.ticker.includes("=X") && !s.ticker.includes(".HK"))
+      .filter(s => s.score >= 0.1)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4);
+    for (const s of topUS) rvIntSignals.push(s);
+
+    const rvBRSignals = signals
+      .filter(s => s.ticker.endsWith(".SA") && !RV_BR_EXCLUDE.includes(s.ticker))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6);
+
+    listInt.innerHTML = rvIntSignals.length
+      ? rvIntSignals.map(renderSignalCard).join("")
+      : `<div class="text-xs text-neutral-500">Sem sinais suficientes no último brief.</div>`;
+    listBR.innerHTML = rvBRSignals.length
+      ? rvBRSignals.map(renderSignalCard).join("")
+      : `<div class="text-xs text-neutral-500">Sem sinais suficientes no último brief.</div>`;
+
+    const meta = latest.name.replace(/\.md$/, "");
+    status.textContent = `Brief: ${meta}`;
+  } catch (e) {
+    console.warn(e);
+    status.textContent = "Erro ao carregar";
+    listInt.innerHTML = `<div class="text-xs text-red-400">Erro: ${e.message}</div>`;
+    listBR.innerHTML = `<div class="text-xs text-red-400">—</div>`;
+  }
+}
+document.getElementById("refreshSignals").addEventListener("click", loadSignals);
+
 const notesArea = document.getElementById("notesArea");
 const notesStatus = document.getElementById("notesStatus");
 notesArea.value = state.notes;
@@ -530,7 +696,6 @@ notesArea.addEventListener("input", () => {
   notesTimer = setTimeout(() => { save(); notesStatus.textContent = "Salvo"; }, 400);
 });
 
-// ============ INIT ============
 function renderAll() {
   renderStrategy();
   renderPositions();
@@ -538,6 +703,7 @@ function renderAll() {
 }
 load();
 renderAll();
+loadSignals();
 </script>
 
 </body>
