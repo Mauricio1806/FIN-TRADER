@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0a0a" />
+<title>FIN-TRADER — Carteira</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --panel: #111111;
+    --border: #1f1f1f;
+    --text: #e5e5e5;
+    --muted: #737373;
+    --accent: #22c55e;
+    --accent-dim: #166534;
+    --rv: #22c55e;
+    --rv-int: #14b8a6;
+    --rv-br: #eab308;
+    --rf: #3b82f6;
+    --rf-ipca: #6366f1;
+    --rf-selic: #a855f7;
+  }
+  * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, monospace;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+  .card-header { padding: 0.875rem 1.125rem; border-bottom: 1px solid var(--border); }
+  .card-body { padding: 1.125rem; }
+  input, textarea, select {
+    background: #0d0d0d; border: 1px solid var(--border); color: var(--text);
+    padding: 0.5rem 0.75rem; border-radius: 4px; font-family: inherit; font-size: 0.9rem;
+    width: 100%;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none; border-color: var(--accent);
+  }
+  button {
+    background: var(--accent-dim); color: white; border: 1px solid var(--accent);
+    padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-family: inherit;
+    font-size: 0.85rem; font-weight: 600; transition: background 0.15s ease;
+  }
+  button:hover { background: var(--accent); }
+  button.secondary { background: transparent; border-color: var(--border); color: var(--text); }
+  button.secondary:hover { background: #181818; }
+  button.danger { background: transparent; border-color: #7f1d1d; color: #fca5a5; }
+  button.danger:hover { background: #7f1d1d; color: white; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 0.5rem 0.6rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { background: #0d0d0d; color: var(--accent); font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  tr:last-child td { border-bottom: 0; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 4px; border: 1px solid var(--border); }
+  .table-wrap table th, .table-wrap table td { border-right: 1px solid var(--border); }
+  .table-wrap table th:last-child, .table-wrap table td:last-child { border-right: 0; }
+  .allocation-bar { display: flex; height: 32px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+  .allocation-bar > div { display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 600; color: white; white-space: nowrap; padding: 0 0.5rem; }
+  .gap-bar { position: relative; height: 24px; background: #0d0d0d; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+  .gap-bar-target { position: absolute; top: 0; bottom: 0; opacity: 0.25; }
+  .gap-bar-actual { position: absolute; top: 0; bottom: 0; }
+  .gap-bar-marker { position: absolute; top: -2px; bottom: -2px; width: 2px; background: white; }
+  .pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .pill-rv-int { background: rgba(20, 184, 166, 0.15); color: #5eead4; }
+  .pill-rv-br { background: rgba(234, 179, 8, 0.15); color: #fde047; }
+  .pill-rf-ipca { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; }
+  .pill-rf-selic { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; }
+  h2 { color: var(--accent); font-weight: 600; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .metric { text-align: center; }
+  .metric-value { font-size: 1.4rem; font-weight: 700; color: white; }
+  .metric-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+  .nav-link { padding: 0.35rem 0.75rem; font-size: 0.8rem; color: var(--muted); border-radius: 4px; text-decoration: none; transition: all 0.15s ease; }
+  .nav-link:hover { color: var(--text); background: #181818; }
+  .nav-link.active { color: white; background: var(--accent-dim); }
+  .note-preset { padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; background: #0d0d0d; border-left: 3px solid var(--accent-dim); font-size: 0.8rem; color: #a3a3a3; border-radius: 0 4px 4px 0; }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .live-dot { animation: pulse-dot 2s ease-in-out infinite; }
+  @media (max-width: 768px) {
+    .card-body { padding: 0.875rem; }
+    .metric-value { font-size: 1.15rem; }
+    .allocation-bar { height: 28px; }
+    .allocation-bar > div { font-size: 0.6rem; padding: 0 0.25rem; }
+    h2 { font-size: 0.85rem; }
+    table { font-size: 0.75rem; }
+    th, td { padding: 0.375rem 0.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="border-b border-[#1f1f1f] px-3 sm:px-6 py-3 flex items-center justify-between sticky top-0 bg-[#0a0a0a] z-40" style="height: 56px;">
+  <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+    <div class="w-2 h-2 rounded-full bg-green-500 live-dot flex-shrink-0"></div>
+    <h1 class="text-base sm:text-lg font-bold tracking-wider truncate">FIN-TRADER</h1>
+  </div>
+  <nav class="flex items-center gap-1">
+    <a href="./index.html" class="nav-link">Briefs</a>
+    <a href="./carteira.html" class="nav-link active">Carteira</a>
+    <a href="https://github.com/Mauricio1806/FIN-TRADER" target="_blank" class="nav-link">Repo ↗</a>
+  </nav>
+</header>
+
+<main class="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
+
+  <!-- 1. Estratégia -->
+  <section class="card">
+    <div class="card-header flex items-center justify-between flex-wrap gap-2">
+      <h2>1. Estratégia de Alocação</h2>
+      <button id="editStrategy" class="secondary text-xs">Editar %</button>
+    </div>
+    <div class="card-body space-y-4">
+      <div>
+        <div class="text-xs text-neutral-500 uppercase tracking-wider mb-2">Distribuição-alvo (100%)</div>
+        <div id="allocationBar" class="allocation-bar"></div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="strategyGrid"></div>
+    </div>
+  </section>
+
+  <!-- 2. Simulador de Aporte -->
+  <section class="card">
+    <div class="card-header"><h2>2. Simulador de Aporte</h2></div>
+    <div class="card-body space-y-4">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Valor a aportar (R$)</label>
+          <input type="number" id="aporteValor" placeholder="Ex: 5000" min="0" step="100" />
+        </div>
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Modo</label>
+          <select id="aporteMode">
+            <option value="strategy">Seguir estratégia (proporcional)</option>
+            <option value="rebalance">Priorizar rebalanceamento</option>
+          </select>
+        </div>
+        <div class="flex items-end">
+          <button id="simularBtn" class="w-full">Simular</button>
+        </div>
+      </div>
+      <div id="aporteResult" class="hidden">
+        <div class="text-xs text-neutral-500 uppercase tracking-wider mb-2">Distribuição sugerida</div>
+        <div class="table-wrap">
+          <table id="aporteTable"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Posições Atuais -->
+  <section class="card">
+    <div class="card-header flex items-center justify-between flex-wrap gap-2">
+      <h2>3. Posições Atuais</h2>
+      <button id="addPositionBtn">+ Adicionar</button>
+    </div>
+    <div class="card-body space-y-4">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="metric"><div id="metricTotal" class="metric-value">R$ 0</div><div class="metric-label">Total Investido</div></div>
+        <div class="metric"><div id="metricRV" class="metric-value">0%</div><div class="metric-label">RV Atual</div></div>
+        <div class="metric"><div id="metricRF" class="metric-value">0%</div><div class="metric-label">RF Atual</div></div>
+        <div class="metric"><div id="metricPositions" class="metric-value">0</div><div class="metric-label">Posições</div></div>
+      </div>
+      <div id="positionForm" class="hidden bg-[#0d0d0d] border border-[#1f1f1f] rounded p-3 space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Ticker / Nome</label>
+            <input type="text" id="posTicker" placeholder="Ex: SPYI11, Tesouro IPCA+ 2035" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Categoria</label>
+            <select id="posCategory">
+              <option value="rv_int">RV Internacional (SPYI11/QQQI11)</option>
+              <option value="rv_br">RV Brasil (Fundo/Ação)</option>
+              <option value="rf_ipca">RF Tesouro IPCA+</option>
+              <option value="rf_selic">RF CDB/Selic</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Valor investido (R$)</label>
+            <input type="number" id="posValue" placeholder="Ex: 1500" min="0" step="0.01" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Data</label>
+            <input type="date" id="posDate" />
+          </div>
+        </div>
+        <div class="flex gap-2 justify-end">
+          <button id="cancelPositionBtn" class="secondary">Cancelar</button>
+          <button id="savePositionBtn">Salvar posição</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="positionsTable">
+          <thead>
+            <tr>
+              <th>Ativo</th><th>Categoria</th><th class="text-right">Valor</th>
+              <th class="text-right">% Atual</th><th>Data</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="positionsBody">
+            <tr><td colspan="6" class="text-center text-neutral-600 py-6">Nenhuma posição registrada. Clique em "+ Adicionar".</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Rebalanceamento -->
+  <section class="card">
+    <div class="card-header"><h2>4. Meta vs Realidade — Gaps de Rebalanceamento</h2></div>
+    <div class="card-body space-y-3" id="rebalanceBody">
+      <div class="text-sm text-neutral-500 text-center py-6">Adicione posições pra ver os gaps.</div>
+    </div>
+  </section>
+
+  <!-- 5. Notas -->
+  <section class="card">
+    <div class="card-header flex items-center justify-between">
+      <h2>5. Notas da Estratégia</h2>
+      <span id="notesStatus" class="text-xs text-neutral-500">Salvo</span>
+    </div>
+    <div class="card-body space-y-3">
+      <div>
+        <div class="text-xs text-neutral-500 uppercase tracking-wider mb-2">Racional do gestor (áudios 07/07/2026)</div>
+        <div class="note-preset">Cadência: não colocar de vez, é aos poucos — "cortando e construindo" até formatação total.</div>
+        <div class="note-preset">Fundo Real Investor: filosofia value vencedora, histórico incontestável.</div>
+        <div class="note-preset">SPYI11 + QQQI11: ETFs internacionais que pagam dividendos, expostos a empresas excepcionais.</div>
+        <div class="note-preset">Sobre IA: não é bolha, é "roda" — Nvidia → MSFT → AMZN → Nvidia. Sistêmico. Empresas entregam lucro, então múltiplos justificados. Ainda não é hora ideal pra entrar.</div>
+        <div class="note-preset">B5P211 / IB5M11: ETFs de IMA-B (Tesouro IPCA+) — alternativa mais líquida que Tesouro Direto, mas tem taxa de administração.</div>
+      </div>
+      <div>
+        <label class="block text-xs text-neutral-500 mb-1">Suas anotações</label>
+        <textarea id="notesArea" rows="8" placeholder="Cole aqui suas observações, motivos de compra, planos futuros..."></textarea>
+      </div>
+    </div>
+  </section>
+
+  <div class="text-center text-xs text-neutral-600 py-4">
+    Dados salvos no seu navegador (localStorage). Nada é enviado ao GitHub.
+    <br />Use o mesmo navegador/dispositivo para manter o histórico.
+  </div>
+
+</main>
+
+<script>
+// ============ STATE ============
+const DEFAULT_STRATEGY = {
+  rv_int:   { pct: 25, name: "RV Internacional", desc: "SPYI11 + QQQI11 — ETFs com dividendos, empresas excepcionais", color: "var(--rv-int)", pill: "pill-rv-int" },
+  rv_br:    { pct: 25, name: "RV Brasil",         desc: "Fundo de ação (ex: Real Investor FIC FIF Ações)",              color: "var(--rv-br)",  pill: "pill-rv-br"  },
+  rf_ipca:  { pct: 40, name: "RF Tesouro IPCA+",  desc: "Núcleo defensivo indexado à inflação",                          color: "var(--rf-ipca)", pill: "pill-rf-ipca" },
+  rf_selic: { pct: 10, name: "RF CDB / Selic",    desc: "CDB ou Tesouro Selic 2031 — liquidez e reserva tática",         color: "var(--rf-selic)", pill: "pill-rf-selic" },
+};
+
+const CATEGORIES = ["rv_int", "rv_br", "rf_ipca", "rf_selic"];
+
+let state = {
+  strategy: { ...DEFAULT_STRATEGY },
+  positions: [],
+  notes: "",
+};
+
+function load() {
+  try {
+    const raw = localStorage.getItem("fin_trader_carteira_v1");
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data.strategy) {
+        for (const k of CATEGORIES) {
+          if (data.strategy[k]?.pct != null) state.strategy[k].pct = data.strategy[k].pct;
+        }
+      }
+      if (Array.isArray(data.positions)) state.positions = data.positions;
+      if (typeof data.notes === "string") state.notes = data.notes;
+    }
+  } catch (e) { console.warn("Load error:", e); }
+}
+
+function save() {
+  try {
+    const data = {
+      strategy: Object.fromEntries(CATEGORIES.map(k => [k, { pct: state.strategy[k].pct }])),
+      positions: state.positions,
+      notes: state.notes,
+    };
+    localStorage.setItem("fin_trader_carteira_v1", JSON.stringify(data));
+  } catch (e) { console.warn("Save error:", e); }
+}
+
+function fmtBRL(v) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+}
+
+// ============ RENDER: ESTRATÉGIA ============
+function renderStrategy() {
+  const bar = document.getElementById("allocationBar");
+  const grid = document.getElementById("strategyGrid");
+  bar.innerHTML = "";
+  grid.innerHTML = "";
+  for (const k of CATEGORIES) {
+    const s = state.strategy[k];
+    const seg = document.createElement("div");
+    seg.style.width = `${s.pct}%`;
+    seg.style.background = s.color;
+    seg.textContent = `${s.pct}%`;
+    bar.appendChild(seg);
+    grid.innerHTML += `
+      <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d]">
+        <div class="flex items-center justify-between mb-1">
+          <span class="pill ${s.pill}">${s.name}</span>
+          <span class="text-lg font-bold text-white">${s.pct}%</span>
+        </div>
+        <div class="text-xs text-neutral-400 leading-relaxed">${s.desc}</div>
+      </div>
+    `;
+  }
+}
+
+document.getElementById("editStrategy").addEventListener("click", () => {
+  const current = CATEGORIES.map(k => state.strategy[k].pct).join(", ");
+  const input = prompt(
+    `Ajuste os 4 percentuais separados por vírgula (soma = 100):\nOrdem: RV Int, RV BR, RF IPCA+, RF Selic\n\nAtual: ${current}`,
+    current
+  );
+  if (!input) return;
+  const parts = input.split(",").map(s => parseFloat(s.trim()));
+  if (parts.length !== 4 || parts.some(n => isNaN(n) || n < 0)) return alert("Formato inválido.");
+  const total = parts.reduce((a, b) => a + b, 0);
+  if (Math.abs(total - 100) > 0.01) return alert(`Soma = ${total}. Precisa ser 100.`);
+  CATEGORIES.forEach((k, i) => state.strategy[k].pct = parts[i]);
+  save();
+  renderAll();
+});
+
+// ============ RENDER: POSIÇÕES ============
+function renderPositions() {
+  const body = document.getElementById("positionsBody");
+  const total = state.positions.reduce((s, p) => s + (p.value || 0), 0);
+  document.getElementById("metricTotal").textContent = fmtBRL(total);
+  document.getElementById("metricPositions").textContent = state.positions.length;
+
+  const byCategory = { rv_int: 0, rv_br: 0, rf_ipca: 0, rf_selic: 0 };
+  state.positions.forEach(p => { byCategory[p.category] = (byCategory[p.category] || 0) + (p.value || 0); });
+  const rvPct = total > 0 ? ((byCategory.rv_int + byCategory.rv_br) / total * 100) : 0;
+  const rfPct = total > 0 ? ((byCategory.rf_ipca + byCategory.rf_selic) / total * 100) : 0;
+  document.getElementById("metricRV").textContent = `${rvPct.toFixed(1)}%`;
+  document.getElementById("metricRF").textContent = `${rfPct.toFixed(1)}%`;
+
+  if (!state.positions.length) {
+    body.innerHTML = `<tr><td colspan="6" class="text-center text-neutral-600 py-6">Nenhuma posição registrada. Clique em "+ Adicionar".</td></tr>`;
+    return;
+  }
+  body.innerHTML = state.positions.map((p, idx) => {
+    const s = state.strategy[p.category];
+    const pct = total > 0 ? (p.value / total * 100) : 0;
+    return `
+      <tr>
+        <td class="text-white font-semibold">${escapeHtml(p.ticker)}</td>
+        <td><span class="pill ${s.pill}">${s.name}</span></td>
+        <td class="text-right">${fmtBRL(p.value)}</td>
+        <td class="text-right">${pct.toFixed(1)}%</td>
+        <td class="text-neutral-500">${p.date || "—"}</td>
+        <td class="text-right"><button class="danger text-xs" data-del="${idx}">×</button></td>
+      </tr>
+    `;
+  }).join("");
+  body.querySelectorAll("[data-del]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.del, 10);
+      if (confirm(`Remover posição "${state.positions[idx].ticker}"?`)) {
+        state.positions.splice(idx, 1);
+        save();
+        renderAll();
+      }
+    });
+  });
+}
+
+function escapeHtml(s) {
+  return String(s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// Form de adicionar posição
+const posForm = document.getElementById("positionForm");
+document.getElementById("addPositionBtn").addEventListener("click", () => {
+  posForm.classList.remove("hidden");
+  document.getElementById("posDate").value = new Date().toISOString().slice(0, 10);
+  document.getElementById("posTicker").focus();
+});
+document.getElementById("cancelPositionBtn").addEventListener("click", () => {
+  posForm.classList.add("hidden");
+  ["posTicker", "posValue"].forEach(id => document.getElementById(id).value = "");
+});
+document.getElementById("savePositionBtn").addEventListener("click", () => {
+  const ticker = document.getElementById("posTicker").value.trim();
+  const category = document.getElementById("posCategory").value;
+  const value = parseFloat(document.getElementById("posValue").value);
+  const date = document.getElementById("posDate").value;
+  if (!ticker) return alert("Informe o ticker/nome.");
+  if (!value || value <= 0) return alert("Informe um valor válido.");
+  state.positions.push({ ticker, category, value, date });
+  save();
+  renderAll();
+  posForm.classList.add("hidden");
+  ["posTicker", "posValue"].forEach(id => document.getElementById(id).value = "");
+});
+
+// ============ RENDER: REBALANCEAMENTO ============
+function renderRebalance() {
+  const el = document.getElementById("rebalanceBody");
+  const total = state.positions.reduce((s, p) => s + (p.value || 0), 0);
+  if (total === 0) {
+    el.innerHTML = `<div class="text-sm text-neutral-500 text-center py-6">Adicione posições pra ver os gaps.</div>`;
+    return;
+  }
+  const byCategory = { rv_int: 0, rv_br: 0, rf_ipca: 0, rf_selic: 0 };
+  state.positions.forEach(p => { byCategory[p.category] = (byCategory[p.category] || 0) + (p.value || 0); });
+
+  const rows = CATEGORIES.map(k => {
+    const s = state.strategy[k];
+    const targetValue = total * s.pct / 100;
+    const actualValue = byCategory[k] || 0;
+    const actualPct = total > 0 ? (actualValue / total * 100) : 0;
+    const gap = targetValue - actualValue;
+    const gapPct = s.pct - actualPct;
+    return { k, s, targetValue, actualValue, actualPct, gap, gapPct };
+  });
+
+  el.innerHTML = rows.map(r => {
+    const targetW = Math.min(100, r.s.pct);
+    const actualW = Math.min(100, r.actualPct);
+    const gapLabel = r.gap > 0 ? `Aportar +${fmtBRL(r.gap)}` : `Excedente ${fmtBRL(Math.abs(r.gap))}`;
+    const gapClass = r.gap > 0 ? "text-green-400" : "text-orange-400";
+    return `
+      <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d]">
+        <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="pill ${r.s.pill}">${r.s.name}</span>
+            <span class="text-xs text-neutral-500">Meta ${r.s.pct}% · Atual ${r.actualPct.toFixed(1)}%</span>
+          </div>
+          <span class="text-xs font-semibold ${gapClass}">${gapLabel}</span>
+        </div>
+        <div class="gap-bar">
+          <div class="gap-bar-target" style="width: ${targetW}%; background: ${r.s.color};"></div>
+          <div class="gap-bar-actual" style="width: ${actualW}%; background: ${r.s.color};"></div>
+          <div class="gap-bar-marker" style="left: ${targetW}%;"></div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+// ============ SIMULADOR ============
+document.getElementById("simularBtn").addEventListener("click", () => {
+  const valor = parseFloat(document.getElementById("aporteValor").value);
+  if (!valor || valor <= 0) return alert("Informe um valor de aporte válido.");
+  const mode = document.getElementById("aporteMode").value;
+  const total = state.positions.reduce((s, p) => s + (p.value || 0), 0);
+  const newTotal = total + valor;
+
+  let distribution = {};
+  if (mode === "strategy" || total === 0) {
+    CATEGORIES.forEach(k => {
+      distribution[k] = valor * state.strategy[k].pct / 100;
+    });
+  } else {
+    // Rebalance mode: prioriza categorias com gap positivo
+    const byCategory = { rv_int: 0, rv_br: 0, rf_ipca: 0, rf_selic: 0 };
+    state.positions.forEach(p => { byCategory[p.category] = (byCategory[p.category] || 0) + (p.value || 0); });
+    const targets = {};
+    CATEGORIES.forEach(k => {
+      targets[k] = newTotal * state.strategy[k].pct / 100;
+    });
+    const gaps = {};
+    let totalGap = 0;
+    CATEGORIES.forEach(k => {
+      const gap = Math.max(0, targets[k] - byCategory[k]);
+      gaps[k] = gap;
+      totalGap += gap;
+    });
+    if (totalGap >= valor) {
+      // Aporte cabe dentro do gap — distribui proporcional ao gap
+      CATEGORIES.forEach(k => {
+        distribution[k] = valor * (gaps[k] / totalGap);
+      });
+    } else {
+      // Fecha o gap todo e distribui o excesso pela estratégia
+      const remainder = valor - totalGap;
+      CATEGORIES.forEach(k => {
+        distribution[k] = gaps[k] + remainder * state.strategy[k].pct / 100;
+      });
+    }
+  }
+
+  const rows = CATEGORIES.map(k => {
+    const s = state.strategy[k];
+    const v = distribution[k] || 0;
+    return `
+      <tr>
+        <td><span class="pill ${s.pill}">${s.name}</span></td>
+        <td class="text-neutral-400">${s.desc}</td>
+        <td class="text-right text-white font-semibold">${fmtBRL(v)}</td>
+        <td class="text-right">${(v/valor*100).toFixed(1)}%</td>
+      </tr>
+    `;
+  }).join("");
+
+  document.getElementById("aporteTable").innerHTML = `
+    <thead><tr><th>Categoria</th><th>Ativo Sugerido</th><th class="text-right">Valor</th><th class="text-right">% Aporte</th></tr></thead>
+    <tbody>${rows}
+      <tr><td colspan="2" class="text-right font-bold text-neutral-500">Total</td>
+        <td class="text-right text-white font-bold">${fmtBRL(valor)}</td>
+        <td class="text-right font-bold">100%</td></tr>
+    </tbody>
+  `;
+  document.getElementById("aporteResult").classList.remove("hidden");
+});
+
+// ============ NOTAS ============
+const notesArea = document.getElementById("notesArea");
+const notesStatus = document.getElementById("notesStatus");
+notesArea.value = state.notes;
+let notesTimer = null;
+notesArea.addEventListener("input", () => {
+  notesStatus.textContent = "Salvando...";
+  state.notes = notesArea.value;
+  clearTimeout(notesTimer);
+  notesTimer = setTimeout(() => { save(); notesStatus.textContent = "Salvo"; }, 400);
+});
+
+// ============ INIT ============
+function renderAll() {
+  renderStrategy();
+  renderPositions();
+  renderRebalance();
+}
+load();
+renderAll();
+</script>
+
+</body>
+</html>
