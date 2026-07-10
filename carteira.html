@@ -240,52 +240,89 @@
   <section class="card">
     <div class="card-header flex items-center justify-between flex-wrap gap-2">
       <h2>6. Simulador de Renda Passiva</h2>
-      <button id="editYields" class="secondary text-xs">Editar taxas</button>
+      <button id="editYields" class="secondary text-xs">Editar taxas dos buckets</button>
     </div>
     <div class="card-body space-y-4">
       <div class="text-xs text-neutral-400 leading-relaxed">
-        Calcula rendimento estimado da carteira. Aplica taxa configurável por bucket sobre o valor alocado,
-        deduz IR, e mostra <b>renda mensal e anual líquida</b>. Use pra dimensionar quanto seu patrimônio pode "faturar por mês"
-        conforme cresce.
+        Estima quanto seu patrimônio gera por mês. Separa em <b>reserva pré-existente</b> (dinheiro que já está parado em CDB/poupança, fora da estratégia)
+        e <b>carteira estratégica</b> (o que segue a alocação da seção 1). Totais somam os dois.
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div>
-          <label class="block text-xs text-neutral-500 mb-1">Base do cálculo</label>
-          <select id="rendaBase">
-            <option value="positions">Posições atuais (soma)</option>
-            <option value="manual">Valor manual</option>
-          </select>
+      <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="pill pill-rf-selic">Reserva Pré-existente</span>
+            <span class="text-xs text-neutral-500">Fora da estratégia — CDB/poupança que já rende</span>
+          </div>
+          <label class="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
+            <input type="checkbox" id="reservaEnabled" checked style="width:16px;height:16px;">
+            Incluir no total
+          </label>
         </div>
-        <div>
-          <label class="block text-xs text-neutral-500 mb-1">Valor base (R$)</label>
-          <input type="number" id="rendaBaseValor" placeholder="Ex: 102427.80" min="0" step="0.01" />
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Apelido</label>
+            <input type="text" id="reservaNome" placeholder="Ex: Porquinho Inter" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Valor (R$)</label>
+            <input type="text" inputmode="decimal" id="reservaValor" placeholder="Ex: 102427,80" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. bruta (%)</label>
+            <input type="text" inputmode="decimal" id="reservaTaxa" placeholder="14,25" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">IR (%)</label>
+            <input type="text" inputmode="decimal" id="reservaIR" placeholder="15" />
+          </div>
         </div>
-        <div>
-          <label class="block text-xs text-neutral-500 mb-1">Aporte extra planejado (R$)</label>
-          <input type="number" id="rendaAporteExtra" placeholder="0" min="0" step="100" value="0" />
+        <div class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2" id="reservaResult">
+          Renda mensal líquida: <b class="text-white">R$ 0,00</b> · Anual líquida: R$ 0,00
         </div>
       </div>
 
-      <div>
-        <div class="text-xs text-neutral-500 uppercase tracking-wider mb-2">Rendimento por bucket (taxas anuais brutas)</div>
-        <div class="table-wrap">
-          <table id="rendaTable"></table>
+      <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-3">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="pill pill-rv-br">Carteira Estratégica</span>
+          <span class="text-xs text-neutral-500">Distribuída pelos 4 buckets conforme seção 1</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Base do cálculo</label>
+            <select id="rendaBase">
+              <option value="positions">Posições atuais (soma)</option>
+              <option value="manual">Valor manual</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Valor base (R$)</label>
+            <input type="text" inputmode="decimal" id="rendaBaseValor" placeholder="Ex: 50000,00" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Aporte extra planejado (R$)</label>
+            <input type="text" inputmode="decimal" id="rendaAporteExtra" placeholder="0" value="0" />
+          </div>
+        </div>
+        <div>
+          <div class="text-xs text-neutral-500 uppercase tracking-wider mb-2">Rendimento por bucket (taxas editáveis)</div>
+          <div class="table-wrap">
+            <table id="rendaTable"></table>
+          </div>
         </div>
       </div>
 
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div class="metric"><div id="rendaMensalBruta" class="metric-value">R$ 0</div><div class="metric-label">Renda Mensal Bruta</div></div>
-        <div class="metric"><div id="rendaMensalLiq" class="metric-value" style="color: var(--accent);">R$ 0</div><div class="metric-label">Renda Mensal Líquida</div></div>
-        <div class="metric"><div id="rendaAnualLiq" class="metric-value">R$ 0</div><div class="metric-label">Renda Anual Líquida</div></div>
+        <div class="metric"><div id="rendaMensalBruta" class="metric-value">R$ 0</div><div class="metric-label">Renda Mensal Bruta Total</div></div>
+        <div class="metric"><div id="rendaMensalLiq" class="metric-value" style="color: var(--accent);">R$ 0</div><div class="metric-label">Renda Mensal Líquida Total</div></div>
+        <div class="metric"><div id="rendaAnualLiq" class="metric-value">R$ 0</div><div class="metric-label">Renda Anual Líquida Total</div></div>
         <div class="metric"><div id="rendaYieldLiq" class="metric-value">0%</div><div class="metric-label">Yield Líquido a.a.</div></div>
       </div>
 
       <div class="text-xs text-neutral-500 border-t border-[#1f1f1f] pt-3 space-y-1">
-        <div><b>Nota:</b> "Renda mensal" é o rendimento total anual dividido por 12 — uma simplificação.
-        Na prática, cash real na conta só vem de: SPYI11/QQQI11 (distribuição mensal), Tesouro IPCA+ (cupom semestral) e dividendos de ações.
-        CDB e fundos você resgata quando precisar.</div>
-        <div><b>IR aplicado:</b> tabela regressiva 15% assume horizonte &gt; 720 dias para RF. Para RV BR (fundo de ações) 15% sobre ganho.</div>
+        <div><b>Nota:</b> "Renda mensal" é rendimento total anual dividido por 12 — simplificação. Cash real na conta vem de:
+        SPYI11/QQQI11 (mensal), Tesouro IPCA+ (cupom semestral), dividendos de ações. CDB e fundos você resgata quando precisar.</div>
+        <div><b>IR:</b> 15% assume horizonte &gt; 720 dias para RF. Para RV BR (fundo de ações) 15% sobre ganho. Ajuste no botão "Editar taxas".</div>
       </div>
     </div>
   </section>
@@ -757,15 +794,28 @@ async function loadSignals() {
 document.getElementById("refreshSignals").addEventListener("click", loadSignals);
 
 // ============ SIMULADOR DE RENDA PASSIVA ============
-// Taxas anuais brutas defaults (editáveis via localStorage)
+// Parser BR: aceita "102427,80", "102.427,80", "102427.80"
+function parseNumBR(str) {
+  if (str === null || str === undefined || str === "") return 0;
+  const s = String(str).trim();
+  if (s.includes(",")) {
+    return parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0;
+  }
+  return parseFloat(s) || 0;
+}
+function fmtNumBR(n, dec = 2) {
+  return (n || 0).toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
 const DEFAULT_YIELDS = {
   rv_int:   { yield: 8.0,  ir: 15, label: "SPYI11/QQQI11 (yield ~8-10% via covered call)" },
-  rv_br:    { yield: 12.0, ir: 15, label: "Fundo de ação (retorno esperado, sem distribuição)" },
-  rf_ipca:  { yield: 11.5, ir: 15, label: "Tesouro IPCA+ (IPCA ~4.7% + juro real ~7%)" },
+  rv_br:    { yield: 12.0, ir: 15, label: "Fundo de ação (retorno esperado, sem distribuição regular)" },
+  rf_ipca:  { yield: 11.5, ir: 15, label: "Tesouro IPCA+ (IPCA ~4,7% + juro real ~7%)" },
   rf_selic: { yield: 14.25, ir: 15, label: "CDB 100% CDI ou Selic (~Selic atual)" },
 };
+let yieldsState = JSON.parse(JSON.stringify(DEFAULT_YIELDS));
 
-let yieldsState = { ...DEFAULT_YIELDS };
+let reservaState = { enabled: true, nome: "", valor: 0, taxa: 14.25, ir: 15 };
 
 function loadYields() {
   try {
@@ -777,43 +827,75 @@ function loadYields() {
         if (data[k]?.ir != null) yieldsState[k].ir = data[k].ir;
       }
     }
-  } catch (e) { console.warn("Load yields error:", e); }
+  } catch (e) { console.warn("Load yields:", e); }
 }
 function saveYields() {
   try {
     const data = Object.fromEntries(CATEGORIES.map(k => [k, { yield: yieldsState[k].yield, ir: yieldsState[k].ir }]));
     localStorage.setItem("fin_trader_yields_v1", JSON.stringify(data));
-  } catch (e) { console.warn("Save yields error:", e); }
+  } catch (e) { console.warn("Save yields:", e); }
+}
+function loadReserva() {
+  try {
+    const raw = localStorage.getItem("fin_trader_reserva_v1");
+    if (raw) Object.assign(reservaState, JSON.parse(raw));
+  } catch (e) { console.warn("Load reserva:", e); }
+  document.getElementById("reservaEnabled").checked = reservaState.enabled;
+  document.getElementById("reservaNome").value = reservaState.nome || "";
+  document.getElementById("reservaValor").value = reservaState.valor > 0 ? fmtNumBR(reservaState.valor) : "";
+  document.getElementById("reservaTaxa").value = fmtNumBR(reservaState.taxa);
+  document.getElementById("reservaIR").value = fmtNumBR(reservaState.ir, 0);
+}
+function saveReserva() {
+  try {
+    localStorage.setItem("fin_trader_reserva_v1", JSON.stringify(reservaState));
+  } catch (e) { console.warn("Save reserva:", e); }
 }
 
 function renderRenda() {
+  // ==== BLOCO A: Reserva pré-existente ====
+  reservaState.enabled = document.getElementById("reservaEnabled").checked;
+  reservaState.nome = document.getElementById("reservaNome").value;
+  reservaState.valor = parseNumBR(document.getElementById("reservaValor").value);
+  reservaState.taxa = parseNumBR(document.getElementById("reservaTaxa").value);
+  reservaState.ir = parseNumBR(document.getElementById("reservaIR").value);
+
+  let reservaAnnualGross = 0, reservaAnnualNet = 0, reservaMonthlyGross = 0, reservaMonthlyNet = 0;
+  if (reservaState.enabled && reservaState.valor > 0) {
+    reservaAnnualGross = reservaState.valor * reservaState.taxa / 100;
+    reservaAnnualNet = reservaAnnualGross * (1 - reservaState.ir / 100);
+    reservaMonthlyGross = reservaAnnualGross / 12;
+    reservaMonthlyNet = reservaAnnualNet / 12;
+  }
+  document.getElementById("reservaResult").innerHTML =
+    `<b class="text-neutral-300">${escapeHtml(reservaState.nome || "Reserva")}</b> — ` +
+    `${fmtBRL(reservaState.valor)} × ${fmtNumBR(reservaState.taxa)}% a.a. → ` +
+    `Renda mensal líquida: <b class="text-white">${fmtBRL(reservaMonthlyNet)}</b> · Anual líquida: ${fmtBRL(reservaAnnualNet)}`;
+
+  // ==== BLOCO B: Carteira estratégica ====
   const baseMode = document.getElementById("rendaBase").value;
   const positionsTotal = state.positions.reduce((s, p) => s + (p.value || 0), 0);
-  const manualValor = parseFloat(document.getElementById("rendaBaseValor").value) || 0;
-  const extra = parseFloat(document.getElementById("rendaAporteExtra").value) || 0;
-  const baseValue = baseMode === "positions" ? positionsTotal : manualValor;
-  const totalValue = baseValue + extra;
+  const manualValor = parseNumBR(document.getElementById("rendaBaseValor").value);
+  const extra = parseNumBR(document.getElementById("rendaAporteExtra").value);
 
-  // Auto-preenche o input com o valor das posições quando modo = positions
   if (baseMode === "positions") {
-    document.getElementById("rendaBaseValor").value = positionsTotal > 0 ? positionsTotal.toFixed(2) : "";
+    document.getElementById("rendaBaseValor").value = positionsTotal > 0 ? fmtNumBR(positionsTotal) : "";
     document.getElementById("rendaBaseValor").disabled = true;
   } else {
     document.getElementById("rendaBaseValor").disabled = false;
   }
+  const baseValue = baseMode === "positions" ? positionsTotal : manualValor;
+  const totalStrategyValue = baseValue + extra;
 
   const byCategory = { rv_int: 0, rv_br: 0, rf_ipca: 0, rf_selic: 0 };
   if (baseMode === "positions" && positionsTotal > 0) {
-    // Usa a distribuição REAL das posições + aplica estratégia no extra
     state.positions.forEach(p => { byCategory[p.category] = (byCategory[p.category] || 0) + (p.value || 0); });
     CATEGORIES.forEach(k => { byCategory[k] += extra * state.strategy[k].pct / 100; });
   } else {
-    // Distribui total conforme estratégia
-    CATEGORIES.forEach(k => { byCategory[k] = totalValue * state.strategy[k].pct / 100; });
+    CATEGORIES.forEach(k => { byCategory[k] = totalStrategyValue * state.strategy[k].pct / 100; });
   }
 
-  let totalMonthlyGross = 0;
-  let totalMonthlyNet = 0;
+  let strategyMonthlyGross = 0, strategyMonthlyNet = 0;
   const rows = CATEGORIES.map(k => {
     const s = state.strategy[k];
     const y = yieldsState[k];
@@ -822,13 +904,12 @@ function renderRenda() {
     const annualNet = annualGross * (1 - y.ir / 100);
     const monthlyGross = annualGross / 12;
     const monthlyNet = annualNet / 12;
-    totalMonthlyGross += monthlyGross;
-    totalMonthlyNet += monthlyNet;
+    strategyMonthlyGross += monthlyGross;
+    strategyMonthlyNet += monthlyNet;
     return { k, s, y, alloc, annualGross, annualNet, monthlyGross, monthlyNet };
   });
 
-  const table = document.getElementById("rendaTable");
-  table.innerHTML = `
+  document.getElementById("rendaTable").innerHTML = `
     <thead>
       <tr>
         <th>Bucket</th><th class="text-right">Alocado</th><th class="text-right">Taxa a.a.</th>
@@ -840,39 +921,52 @@ function renderRenda() {
         <tr>
           <td><span class="pill ${r.s.pill}">${r.s.name}</span></td>
           <td class="text-right">${fmtBRL(r.alloc)}</td>
-          <td class="text-right">${r.y.yield.toFixed(2)}%</td>
+          <td class="text-right">${fmtNumBR(r.y.yield)}%</td>
           <td class="text-right">${r.y.ir}%</td>
           <td class="text-right text-white font-semibold">${fmtBRL(r.monthlyNet)}</td>
           <td class="text-right">${fmtBRL(r.annualNet)}</td>
         </tr>
       `).join("")}
       <tr>
-        <td class="text-right font-bold text-neutral-500" colspan="4">Total</td>
-        <td class="text-right text-white font-bold">${fmtBRL(totalMonthlyNet)}</td>
-        <td class="text-right font-bold">${fmtBRL(totalMonthlyNet * 12)}</td>
+        <td class="text-right font-bold text-neutral-500" colspan="4">Subtotal Estratégica</td>
+        <td class="text-right text-white font-bold">${fmtBRL(strategyMonthlyNet)}</td>
+        <td class="text-right font-bold">${fmtBRL(strategyMonthlyNet * 12)}</td>
       </tr>
     </tbody>
   `;
 
+  // ==== TOTAIS CONSOLIDADOS ====
+  const totalMonthlyGross = strategyMonthlyGross + reservaMonthlyGross;
+  const totalMonthlyNet = strategyMonthlyNet + reservaMonthlyNet;
+  const totalPatrimony = totalStrategyValue + (reservaState.enabled ? reservaState.valor : 0);
+  const yieldLiq = totalPatrimony > 0 ? (totalMonthlyNet * 12 / totalPatrimony * 100) : 0;
+
   document.getElementById("rendaMensalBruta").textContent = fmtBRL(totalMonthlyGross);
   document.getElementById("rendaMensalLiq").textContent = fmtBRL(totalMonthlyNet);
   document.getElementById("rendaAnualLiq").textContent = fmtBRL(totalMonthlyNet * 12);
-  const yieldLiqAnnual = totalValue > 0 ? (totalMonthlyNet * 12 / totalValue * 100) : 0;
-  document.getElementById("rendaYieldLiq").textContent = `${yieldLiqAnnual.toFixed(2)}%`;
+  document.getElementById("rendaYieldLiq").textContent = `${fmtNumBR(yieldLiq)}%`;
+
+  saveReserva();
 }
 
+// Listeners: reserva + carteira estratégica
+["reservaEnabled", "reservaNome", "reservaValor", "reservaTaxa", "reservaIR"].forEach(id => {
+  const el = document.getElementById(id);
+  const evt = el.type === "checkbox" ? "change" : "input";
+  el.addEventListener(evt, renderRenda);
+});
 document.getElementById("rendaBase").addEventListener("change", renderRenda);
 document.getElementById("rendaBaseValor").addEventListener("input", renderRenda);
 document.getElementById("rendaAporteExtra").addEventListener("input", renderRenda);
 
 document.getElementById("editYields").addEventListener("click", () => {
-  const current = CATEGORIES.map(k => yieldsState[k].yield.toFixed(2)).join(", ");
+  const current = CATEGORIES.map(k => fmtNumBR(yieldsState[k].yield)).join(", ");
   const input = prompt(
     `Ajuste as 4 taxas anuais brutas (%) separadas por vírgula:\nOrdem: RV Int, RV BR, RF IPCA+, RF Selic\n\nAtual: ${current}`,
     current
   );
   if (!input) return;
-  const parts = input.split(",").map(s => parseFloat(s.trim()));
+  const parts = input.split(",").map(s => parseNumBR(s.trim()));
   if (parts.length !== 4 || parts.some(n => isNaN(n) || n < 0)) return alert("Formato inválido.");
   CATEGORIES.forEach((k, i) => yieldsState[k].yield = parts[i]);
   saveYields();
@@ -898,6 +992,7 @@ function renderAll() {
 }
 load();
 loadYields();
+loadReserva();
 renderAll();
 loadSignals();
 </script>
