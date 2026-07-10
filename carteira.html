@@ -238,7 +238,60 @@
   </section>
 
   <section class="card">
-    <div class="card-header"><h2>6. Onde Comprar</h2></div>
+    <div class="card-header flex items-center justify-between flex-wrap gap-2">
+      <h2>6. Simulador de Renda Passiva</h2>
+      <button id="editYields" class="secondary text-xs">Editar taxas</button>
+    </div>
+    <div class="card-body space-y-4">
+      <div class="text-xs text-neutral-400 leading-relaxed">
+        Calcula rendimento estimado da carteira. Aplica taxa configurável por bucket sobre o valor alocado,
+        deduz IR, e mostra <b>renda mensal e anual líquida</b>. Use pra dimensionar quanto seu patrimônio pode "faturar por mês"
+        conforme cresce.
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Base do cálculo</label>
+          <select id="rendaBase">
+            <option value="positions">Posições atuais (soma)</option>
+            <option value="manual">Valor manual</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Valor base (R$)</label>
+          <input type="number" id="rendaBaseValor" placeholder="Ex: 102427.80" min="0" step="0.01" />
+        </div>
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Aporte extra planejado (R$)</label>
+          <input type="number" id="rendaAporteExtra" placeholder="0" min="0" step="100" value="0" />
+        </div>
+      </div>
+
+      <div>
+        <div class="text-xs text-neutral-500 uppercase tracking-wider mb-2">Rendimento por bucket (taxas anuais brutas)</div>
+        <div class="table-wrap">
+          <table id="rendaTable"></table>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="metric"><div id="rendaMensalBruta" class="metric-value">R$ 0</div><div class="metric-label">Renda Mensal Bruta</div></div>
+        <div class="metric"><div id="rendaMensalLiq" class="metric-value" style="color: var(--accent);">R$ 0</div><div class="metric-label">Renda Mensal Líquida</div></div>
+        <div class="metric"><div id="rendaAnualLiq" class="metric-value">R$ 0</div><div class="metric-label">Renda Anual Líquida</div></div>
+        <div class="metric"><div id="rendaYieldLiq" class="metric-value">0%</div><div class="metric-label">Yield Líquido a.a.</div></div>
+      </div>
+
+      <div class="text-xs text-neutral-500 border-t border-[#1f1f1f] pt-3 space-y-1">
+        <div><b>Nota:</b> "Renda mensal" é o rendimento total anual dividido por 12 — uma simplificação.
+        Na prática, cash real na conta só vem de: SPYI11/QQQI11 (distribuição mensal), Tesouro IPCA+ (cupom semestral) e dividendos de ações.
+        CDB e fundos você resgata quando precisar.</div>
+        <div><b>IR aplicado:</b> tabela regressiva 15% assume horizonte &gt; 720 dias para RF. Para RV BR (fundo de ações) 15% sobre ganho.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header"><h2>7. Onde Comprar</h2></div>
     <div class="card-body space-y-3">
       <div class="text-xs text-neutral-400 leading-relaxed">
         Informações práticas por categoria — plataformas de acesso, custos e observações.
@@ -247,7 +300,7 @@
 
       <div class="buy-card">
         <div class="buy-card-title">
-          <span class="pill pill-rv-int">RV Internacional</span>
+          <span class="pill pill-rv-int">RV Internacional — via B3</span>
           <span class="text-xs text-neutral-500">SPYI11 / QQQI11 / IVVB11</span>
         </div>
         <div class="buy-card-list">
@@ -257,8 +310,26 @@
           <b>Impostos:</b> ETFs listados na B3 pagam 15% sobre lucro (sem isenção de R$20k/mês).
         </div>
         <div class="buy-card-note">
-          SPYI11 e QQQI11 (Investo) usam estratégia de covered call — trocam upside por distribuição mensal.
-          Se prioriza retorno total no longo prazo, IVVB11 (S&P 500 puro) pode ser mais eficiente.
+          SPYI11 / QQQI11 (Investo) usam covered call — pagam distribuição mensal alta (~10% a.a.) mas trocam upside.
+          IVVB11 (S&P 500 puro) rende retorno total maior no longo prazo, com dividendos baixos.
+        </div>
+      </div>
+
+      <div class="buy-card">
+        <div class="buy-card-title">
+          <span class="pill pill-rv-int">RV Internacional — direto no exterior</span>
+          <span class="text-xs text-neutral-500">VOO / QQQ / SPY / SCHD</span>
+        </div>
+        <div class="buy-card-list">
+          <b>Onde:</b> corretoras internacionais para investidor BR — Avenue, Nomad, Inter Invest USA, XP Internacional, BTG Nova York, Interactive Brokers.<br />
+          <b>Custos:</b> spread cambial na conversão BRL→USD (comparar entre corretoras), IOF de 0,38% no envio de câmbio, corretagem geralmente 0 para ETFs.<br />
+          <b>Impostos:</b> dividendos têm 30% retidos na fonte pelos EUA (não recuperáveis). Ganho de capital: 15% no Brasil, com <b>isenção para vendas até US$ 35k/mês em ações no exterior</b> (verificar regra atualizada).<br />
+          <b>Obrigações:</b> declarar bens no exterior no IRPF; declaração ao BC se ativos &gt; US$ 1 milhão.
+        </div>
+        <div class="buy-card-note">
+          <b>VOO (Vanguard S&P 500):</b> expense ratio de 0,03% — a menor do mercado. Sem covered call, exposição pura ao S&P 500.
+          Vantagem clara sobre SPYI11/IVVB11 no longo prazo por causa da taxa. Desvantagem: complexidade cambial e tributária + spread de câmbio no aporte.
+          Faz sentido para aportes maiores; em valores pequenos o custo cambial come o benefício.
         </div>
       </div>
 
@@ -315,7 +386,7 @@
 
   <section class="card">
     <div class="card-header flex items-center justify-between">
-      <h2>7. Notas da Estratégia</h2>
+      <h2>8. Notas da Estratégia</h2>
       <span id="notesStatus" class="text-xs text-neutral-500">Salvo</span>
     </div>
     <div class="card-body space-y-3">
@@ -685,6 +756,129 @@ async function loadSignals() {
 }
 document.getElementById("refreshSignals").addEventListener("click", loadSignals);
 
+// ============ SIMULADOR DE RENDA PASSIVA ============
+// Taxas anuais brutas defaults (editáveis via localStorage)
+const DEFAULT_YIELDS = {
+  rv_int:   { yield: 8.0,  ir: 15, label: "SPYI11/QQQI11 (yield ~8-10% via covered call)" },
+  rv_br:    { yield: 12.0, ir: 15, label: "Fundo de ação (retorno esperado, sem distribuição)" },
+  rf_ipca:  { yield: 11.5, ir: 15, label: "Tesouro IPCA+ (IPCA ~4.7% + juro real ~7%)" },
+  rf_selic: { yield: 14.25, ir: 15, label: "CDB 100% CDI ou Selic (~Selic atual)" },
+};
+
+let yieldsState = { ...DEFAULT_YIELDS };
+
+function loadYields() {
+  try {
+    const raw = localStorage.getItem("fin_trader_yields_v1");
+    if (raw) {
+      const data = JSON.parse(raw);
+      for (const k of CATEGORIES) {
+        if (data[k]?.yield != null) yieldsState[k].yield = data[k].yield;
+        if (data[k]?.ir != null) yieldsState[k].ir = data[k].ir;
+      }
+    }
+  } catch (e) { console.warn("Load yields error:", e); }
+}
+function saveYields() {
+  try {
+    const data = Object.fromEntries(CATEGORIES.map(k => [k, { yield: yieldsState[k].yield, ir: yieldsState[k].ir }]));
+    localStorage.setItem("fin_trader_yields_v1", JSON.stringify(data));
+  } catch (e) { console.warn("Save yields error:", e); }
+}
+
+function renderRenda() {
+  const baseMode = document.getElementById("rendaBase").value;
+  const positionsTotal = state.positions.reduce((s, p) => s + (p.value || 0), 0);
+  const manualValor = parseFloat(document.getElementById("rendaBaseValor").value) || 0;
+  const extra = parseFloat(document.getElementById("rendaAporteExtra").value) || 0;
+  const baseValue = baseMode === "positions" ? positionsTotal : manualValor;
+  const totalValue = baseValue + extra;
+
+  // Auto-preenche o input com o valor das posições quando modo = positions
+  if (baseMode === "positions") {
+    document.getElementById("rendaBaseValor").value = positionsTotal > 0 ? positionsTotal.toFixed(2) : "";
+    document.getElementById("rendaBaseValor").disabled = true;
+  } else {
+    document.getElementById("rendaBaseValor").disabled = false;
+  }
+
+  const byCategory = { rv_int: 0, rv_br: 0, rf_ipca: 0, rf_selic: 0 };
+  if (baseMode === "positions" && positionsTotal > 0) {
+    // Usa a distribuição REAL das posições + aplica estratégia no extra
+    state.positions.forEach(p => { byCategory[p.category] = (byCategory[p.category] || 0) + (p.value || 0); });
+    CATEGORIES.forEach(k => { byCategory[k] += extra * state.strategy[k].pct / 100; });
+  } else {
+    // Distribui total conforme estratégia
+    CATEGORIES.forEach(k => { byCategory[k] = totalValue * state.strategy[k].pct / 100; });
+  }
+
+  let totalMonthlyGross = 0;
+  let totalMonthlyNet = 0;
+  const rows = CATEGORIES.map(k => {
+    const s = state.strategy[k];
+    const y = yieldsState[k];
+    const alloc = byCategory[k] || 0;
+    const annualGross = alloc * y.yield / 100;
+    const annualNet = annualGross * (1 - y.ir / 100);
+    const monthlyGross = annualGross / 12;
+    const monthlyNet = annualNet / 12;
+    totalMonthlyGross += monthlyGross;
+    totalMonthlyNet += monthlyNet;
+    return { k, s, y, alloc, annualGross, annualNet, monthlyGross, monthlyNet };
+  });
+
+  const table = document.getElementById("rendaTable");
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Bucket</th><th class="text-right">Alocado</th><th class="text-right">Taxa a.a.</th>
+        <th class="text-right">IR</th><th class="text-right">Mensal Líq.</th><th class="text-right">Anual Líq.</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map(r => `
+        <tr>
+          <td><span class="pill ${r.s.pill}">${r.s.name}</span></td>
+          <td class="text-right">${fmtBRL(r.alloc)}</td>
+          <td class="text-right">${r.y.yield.toFixed(2)}%</td>
+          <td class="text-right">${r.y.ir}%</td>
+          <td class="text-right text-white font-semibold">${fmtBRL(r.monthlyNet)}</td>
+          <td class="text-right">${fmtBRL(r.annualNet)}</td>
+        </tr>
+      `).join("")}
+      <tr>
+        <td class="text-right font-bold text-neutral-500" colspan="4">Total</td>
+        <td class="text-right text-white font-bold">${fmtBRL(totalMonthlyNet)}</td>
+        <td class="text-right font-bold">${fmtBRL(totalMonthlyNet * 12)}</td>
+      </tr>
+    </tbody>
+  `;
+
+  document.getElementById("rendaMensalBruta").textContent = fmtBRL(totalMonthlyGross);
+  document.getElementById("rendaMensalLiq").textContent = fmtBRL(totalMonthlyNet);
+  document.getElementById("rendaAnualLiq").textContent = fmtBRL(totalMonthlyNet * 12);
+  const yieldLiqAnnual = totalValue > 0 ? (totalMonthlyNet * 12 / totalValue * 100) : 0;
+  document.getElementById("rendaYieldLiq").textContent = `${yieldLiqAnnual.toFixed(2)}%`;
+}
+
+document.getElementById("rendaBase").addEventListener("change", renderRenda);
+document.getElementById("rendaBaseValor").addEventListener("input", renderRenda);
+document.getElementById("rendaAporteExtra").addEventListener("input", renderRenda);
+
+document.getElementById("editYields").addEventListener("click", () => {
+  const current = CATEGORIES.map(k => yieldsState[k].yield.toFixed(2)).join(", ");
+  const input = prompt(
+    `Ajuste as 4 taxas anuais brutas (%) separadas por vírgula:\nOrdem: RV Int, RV BR, RF IPCA+, RF Selic\n\nAtual: ${current}`,
+    current
+  );
+  if (!input) return;
+  const parts = input.split(",").map(s => parseFloat(s.trim()));
+  if (parts.length !== 4 || parts.some(n => isNaN(n) || n < 0)) return alert("Formato inválido.");
+  CATEGORIES.forEach((k, i) => yieldsState[k].yield = parts[i]);
+  saveYields();
+  renderRenda();
+});
+
 const notesArea = document.getElementById("notesArea");
 const notesStatus = document.getElementById("notesStatus");
 notesArea.value = state.notes;
@@ -700,8 +894,10 @@ function renderAll() {
   renderStrategy();
   renderPositions();
   renderRebalance();
+  renderRenda();
 }
 load();
+loadYields();
 renderAll();
 loadSignals();
 </script>
