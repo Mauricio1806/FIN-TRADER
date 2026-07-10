@@ -20,6 +20,7 @@
   .card-body { padding: 1.125rem; }
   input, textarea, select { background: #0d0d0d; border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 4px; font-family: inherit; font-size: 0.9rem; width: 100%; }
   input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  input:disabled { opacity: 0.5; cursor: not-allowed; background: #060606; }
   button { background: var(--accent-dim); color: white; border: 1px solid var(--accent); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: 600; transition: background 0.15s ease; }
   button:hover { background: var(--accent); }
   button.secondary { background: transparent; border-color: var(--border); color: var(--text); }
@@ -912,8 +913,10 @@ function renderRenda() {
   if (baseMode === "positions") {
     document.getElementById("rendaBaseValor").value = positionsTotal > 0 ? fmtNumBR(positionsTotal) : "";
     document.getElementById("rendaBaseValor").disabled = true;
+    document.getElementById("rendaBaseValor").placeholder = "Soma automática das posições (mude p/ Valor manual pra editar)";
   } else {
     document.getElementById("rendaBaseValor").disabled = false;
+    document.getElementById("rendaBaseValor").placeholder = "Ex: 50000,00";
   }
   const baseValue = baseMode === "positions" ? positionsTotal : manualValor;
   const totalStrategyValue = baseValue + extra;
@@ -988,6 +991,15 @@ function renderRenda() {
 });
 document.getElementById("rendaBase").addEventListener("change", renderRenda);
 document.getElementById("rendaBaseValor").addEventListener("input", renderRenda);
+document.getElementById("rendaBaseValor").addEventListener("click", () => {
+  // Se o campo está desabilitado, troca pra Valor manual e libera pra editar
+  if (document.getElementById("rendaBaseValor").disabled) {
+    document.getElementById("rendaBase").value = "manual";
+    renderRenda();
+    document.getElementById("rendaBaseValor").focus();
+    document.getElementById("rendaBaseValor").select();
+  }
+});
 document.getElementById("rendaAporteExtra").addEventListener("input", renderRenda);
 
 document.getElementById("editYields").addEventListener("click", () => {
