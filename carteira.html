@@ -21,6 +21,13 @@
   input, textarea, select { background: #0d0d0d; border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 4px; font-family: inherit; font-size: 0.9rem; width: 100%; }
   input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
   input:disabled { opacity: 0.5; cursor: not-allowed; background: #060606; }
+  .chart-tab, .period-tab {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 0.4rem 0.85rem; font-size: 0.75rem; border-radius: 4px; cursor: pointer;
+    font-weight: 500; transition: all 0.15s ease; font-family: inherit;
+  }
+  .chart-tab:hover, .period-tab:hover { color: var(--text); background: #181818; }
+  .chart-tab.active, .period-tab.active { background: var(--accent-dim); border-color: var(--accent); color: white; }
   button { background: var(--accent-dim); color: white; border: 1px solid var(--accent); padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: 600; transition: background 0.15s ease; }
   button:hover { background: var(--accent); }
   button.secondary { background: transparent; border-color: var(--border); color: var(--text); }
@@ -471,6 +478,39 @@
         <label class="block text-xs text-neutral-500 mb-1">Suas anotações</label>
         <textarea id="notesArea" rows="8" placeholder="Cole aqui suas observações, motivos de compra, planos futuros..."></textarea>
       </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header flex items-center justify-between flex-wrap gap-2">
+      <h2>9. Evolução da Carteira</h2>
+      <span class="text-xs text-neutral-500">Baseado em posições cadastradas + reserva + yields da seção 6</span>
+    </div>
+    <div class="card-body space-y-4">
+      <div class="text-xs text-neutral-400 leading-relaxed">
+        Visualização temporal do patrimônio. <b>Investido</b> = cash real aportado; <b>Patrimônio</b> = investido + rendimento acumulado (projeção pelas taxas);
+        <b>Rendimento</b> = só o rendimento acumulado. Cada aporte rende desde a data cadastrada em §4; a reserva rende desde o início do período.
+      </div>
+
+      <div class="flex gap-1 flex-wrap">
+        <button class="chart-tab active" data-tab="investido">Investido</button>
+        <button class="chart-tab" data-tab="patrimonio">Patrimônio</button>
+        <button class="chart-tab" data-tab="rendimento">Rendimento</button>
+      </div>
+
+      <div class="flex gap-1 flex-wrap">
+        <button class="period-tab" data-period="daily">Diário (30d)</button>
+        <button class="period-tab" data-period="weekly">Semanal (12sem)</button>
+        <button class="period-tab active" data-period="monthly">Mensal (12m)</button>
+        <button class="period-tab" data-period="semestral">Semestral (2a)</button>
+        <button class="period-tab" data-period="yearly">Anual (5a)</button>
+      </div>
+
+      <div class="bg-[#0d0d0d] border border-[#1f1f1f] rounded p-3">
+        <svg id="evolucaoChart" viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: auto;"></svg>
+      </div>
+
+      <div id="evolucaoStats"></div>
     </div>
   </section>
 
@@ -981,6 +1021,7 @@ function renderRenda() {
   document.getElementById("rendaYieldLiq").textContent = `${fmtNumBR(yieldLiq)}%`;
 
   saveReserva();
+  if (typeof renderChart === "function") renderChart();
 }
 
 // Listeners: reserva + carteira estratégica
@@ -1027,17 +1068,208 @@ notesArea.addEventListener("input", () => {
   notesTimer = setTimeout(() => { save(); notesStatus.textContent = "Salvo"; }, 400);
 });
 
+// ============ EVOLUÇÃO DA CARTEIRA (GRÁFICO) ============
+let chartTab = "investido";
+let chartPeriod = "monthly";
+
+const PERIOD_CONFIG = {
+  daily:     { days: 30,   stepDays: 1 },
+  weekly:    { days: 84,   stepDays: 7 },
+  monthly:   { days: 365,  stepDays: 30 },
+  semestral: { days: 730,  stepDays: 60 },
+  yearly:    { days: 1825, stepDays: 90 },
+};
+
+const MONTH_ABBR = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+function formatDateForPeriod(date, period) {
+  const d = date.getDate().toString().padStart(2, "0");
+  const m = date.getMonth();
+  const y = date.getFullYear().toString().slice(-2);
+  if (period === "daily" || period === "weekly") return `${d}/${(m+1).toString().padStart(2,"0")}`;
+  if (period === "monthly" || period === "semestral") return `${MONTH_ABBR[m]}/${y}`;
+  return date.getFullYear().toString();
+}
+
+function buildTimeSeries() {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const config = PERIOD_CONFIG[chartPeriod];
+  const start = new Date(now);
+  start.setDate(start.getDate() - config.days);
+
+  const reservaBase = (reservaState.enabled && reservaState.valor > 0) ? reservaState.valor : 0;
+  const reservaYieldNet = reservaBase * (reservaState.taxa / 100) * (1 - reservaState.ir / 100);
+
+  const bucketYields = {};
+  CATEGORIES.forEach(k => {
+    bucketYields[k] = (yieldsState[k].yield / 100) * (1 - yieldsState[k].ir / 100);
+  });
+
+  const positions = state.positions
+    .filter(p => p.date)
+    .map(p => ({ ...p, dateObj: new Date(p.date), yieldRate: bucketYields[p.category] || 0 }))
+    .filter(p => !isNaN(p.dateObj) && p.dateObj <= now)
+    .sort((a, b) => a.dateObj - b.dateObj);
+
+  const points = [];
+  const cursor = new Date(start);
+  while (cursor <= now) {
+    const cursorMs = cursor.getTime();
+    const invested = reservaBase + positions
+      .filter(p => p.dateObj <= cursor)
+      .reduce((s, p) => s + p.value, 0);
+    const daysReserva = Math.max(0, (cursorMs - start.getTime()) / 86400000);
+    const reservaRend = reservaYieldNet * (daysReserva / 365);
+    const posRend = positions
+      .filter(p => p.dateObj <= cursor)
+      .reduce((s, p) => {
+        const days = Math.max(0, (cursorMs - p.dateObj.getTime()) / 86400000);
+        return s + p.value * p.yieldRate * (days / 365);
+      }, 0);
+    const yielded = reservaRend + posRend;
+    points.push({ date: new Date(cursor), invested, yielded, total: invested + yielded });
+    cursor.setDate(cursor.getDate() + config.stepDays);
+  }
+  const lastPoint = points[points.length - 1];
+  if (!lastPoint || lastPoint.date.getTime() < now.getTime()) {
+    const invested = reservaBase + positions.reduce((s, p) => s + p.value, 0);
+    const daysReserva = Math.max(0, (now.getTime() - start.getTime()) / 86400000);
+    const reservaRend = reservaYieldNet * (daysReserva / 365);
+    const posRend = positions.reduce((s, p) => {
+      const days = Math.max(0, (now.getTime() - p.dateObj.getTime()) / 86400000);
+      return s + p.value * p.yieldRate * (days / 365);
+    }, 0);
+    const yielded = reservaRend + posRend;
+    points.push({ date: new Date(now), invested, yielded, total: invested + yielded });
+  }
+  return points;
+}
+
+function renderChart() {
+  const svg = document.getElementById("evolucaoChart");
+  const statsEl = document.getElementById("evolucaoStats");
+  if (!svg || !statsEl) return;
+
+  const hasData = (reservaState.enabled && reservaState.valor > 0) || state.positions.length > 0;
+  if (!hasData) {
+    svg.innerHTML = `<text x="400" y="160" text-anchor="middle" fill="#737373" font-size="13" font-family="ui-monospace">Cadastre posições em §4 ou uma reserva em §6 pra ver a evolução</text>`;
+    statsEl.innerHTML = "";
+    return;
+  }
+
+  const points = buildTimeSeries();
+  const getValue = p => chartTab === "investido" ? p.invested : chartTab === "patrimonio" ? p.total : p.yielded;
+  const values = points.map(getValue);
+
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const minY = chartTab === "rendimento" ? 0 : Math.min(0, rawMin);
+  const maxY = rawMax > 0 ? rawMax * 1.1 : 1;
+
+  const W = 800, H = 320;
+  const PAD_L = 70, PAD_R = 20, PAD_T = 20, PAD_B = 40;
+  const plotW = W - PAD_L - PAD_R;
+  const plotH = H - PAD_T - PAD_B;
+
+  const xScale = i => PAD_L + (points.length <= 1 ? plotW/2 : (i / (points.length - 1)) * plotW);
+  const yScale = v => PAD_T + plotH - ((v - minY) / (maxY - minY || 1)) * plotH;
+
+  const gridLines = [];
+  const gridLabels = [];
+  for (let i = 0; i <= 4; i++) {
+    const v = minY + (maxY - minY) * i / 4;
+    const y = yScale(v);
+    gridLines.push(`<line x1="${PAD_L}" y1="${y.toFixed(1)}" x2="${W - PAD_R}" y2="${y.toFixed(1)}" stroke="#1f1f1f" stroke-width="1"/>`);
+    const compactValue = v >= 1000 ? `${(v/1000).toFixed(v >= 10000 ? 0 : 1)}k` : v.toFixed(0);
+    gridLabels.push(`<text x="${PAD_L - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" fill="#737373" font-size="10" font-family="ui-monospace">R$ ${compactValue}</text>`);
+  }
+
+  const pathData = points.map((p, i) => `${i === 0 ? "M" : "L"} ${xScale(i).toFixed(1)} ${yScale(getValue(p)).toFixed(1)}`).join(" ");
+  const baseY = yScale(minY < 0 ? 0 : minY);
+  const areaData = pathData + ` L ${xScale(points.length - 1).toFixed(1)} ${baseY.toFixed(1)} L ${xScale(0).toFixed(1)} ${baseY.toFixed(1)} Z`;
+
+  const color = chartTab === "investido" ? "#22c55e" : chartTab === "patrimonio" ? "#3b82f6" : "#eab308";
+
+  const showDots = points.length <= 30;
+  const dots = showDots ? points.map((p, i) =>
+    `<circle cx="${xScale(i).toFixed(1)}" cy="${yScale(getValue(p)).toFixed(1)}" r="3" fill="${color}" stroke="#0a0a0a" stroke-width="1"/>`
+  ).join("") : "";
+
+  const xLabels = [];
+  const labelStep = Math.max(1, Math.floor(points.length / 6));
+  for (let i = 0; i < points.length; i += labelStep) {
+    const x = xScale(i);
+    xLabels.push(`<text x="${x.toFixed(1)}" y="${(H - PAD_B + 20).toFixed(1)}" text-anchor="middle" fill="#737373" font-size="10" font-family="ui-monospace">${formatDateForPeriod(points[i].date, chartPeriod)}</text>`);
+  }
+
+  svg.innerHTML = `
+    ${gridLines.join("")}
+    ${gridLabels.join("")}
+    <path d="${areaData}" fill="${color}" opacity="0.12"/>
+    <path d="${pathData}" fill="none" stroke="${color}" stroke-width="2"/>
+    ${dots}
+    ${xLabels.join("")}
+  `;
+
+  const first = getValue(points[0]);
+  const last = getValue(points[points.length - 1]);
+  const delta = last - first;
+  const deltaPct = first !== 0 ? (delta / Math.abs(first) * 100) : (last !== 0 ? 100 : 0);
+  const deltaColor = delta >= 0 ? "#86efac" : "#fca5a5";
+  const deltaSign = delta >= 0 ? "+" : "";
+
+  statsEl.innerHTML = `
+    <div class="grid grid-cols-3 gap-3 text-center border-t border-[#1f1f1f] pt-3">
+      <div>
+        <div class="text-xs text-neutral-500 uppercase tracking-wider">Início do período</div>
+        <div class="text-base font-bold text-white mt-1">${fmtBRL(first)}</div>
+        <div class="text-xs text-neutral-500 mt-1">${formatDateForPeriod(points[0].date, chartPeriod)}</div>
+      </div>
+      <div>
+        <div class="text-xs text-neutral-500 uppercase tracking-wider">Hoje</div>
+        <div class="text-base font-bold text-white mt-1">${fmtBRL(last)}</div>
+        <div class="text-xs text-neutral-500 mt-1">${formatDateForPeriod(points[points.length-1].date, chartPeriod)}</div>
+      </div>
+      <div>
+        <div class="text-xs text-neutral-500 uppercase tracking-wider">Variação</div>
+        <div class="text-base font-bold mt-1" style="color: ${deltaColor}">${deltaSign}${fmtBRL(delta)}</div>
+        <div class="text-xs mt-1" style="color: ${deltaColor}">${deltaSign}${deltaPct.toFixed(1)}%</div>
+      </div>
+    </div>
+  `;
+}
+
+document.querySelectorAll(".chart-tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".chart-tab").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    chartTab = btn.dataset.tab;
+    renderChart();
+  });
+});
+document.querySelectorAll(".period-tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".period-tab").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    chartPeriod = btn.dataset.period;
+    renderChart();
+  });
+});
+
 function renderAll() {
   renderStrategy();
   renderPositions();
   renderRebalance();
   renderRenda();
+  renderChart();
 }
 load();
 loadYields();
 loadReserva();
 renderAll();
 loadSignals();
+setInterval(loadSignals, 5 * 60 * 1000);
 </script>
 
 </body>
