@@ -285,6 +285,12 @@
             <input type="text" inputmode="decimal" id="reservaIR" placeholder="15" />
           </div>
         </div>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Início (usado no gráfico)</label>
+            <input type="date" id="reservaInicio" />
+          </div>
+        </div>
         <div class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2" id="reservaResult">
           Renda mensal líquida: <b class="text-white">R$ 0,00</b> · Anual líquida: R$ 0,00
         </div>
@@ -488,8 +494,9 @@
     </div>
     <div class="card-body space-y-4">
       <div class="text-xs text-neutral-400 leading-relaxed">
-        Visualização temporal do patrimônio. <b>Investido</b> = cash real aportado; <b>Patrimônio</b> = investido + rendimento acumulado (projeção pelas taxas);
-        <b>Rendimento</b> = só o rendimento acumulado. Cada aporte rende desde a data cadastrada em §4; a reserva rende desde o início do período.
+        Visualização em barras. <b>Investido</b> = cash real aportado; <b>Patrimônio</b> = investido + rendimento acumulado (projeção pelas taxas);
+        <b>Rendimento</b> = só o rendimento. Cada aporte rende desde a data em §4; a reserva rende a partir da data configurada em §6
+        (se não configurada, considera desde o início do período).
       </div>
 
       <div class="flex gap-1 flex-wrap">
@@ -887,7 +894,7 @@ const DEFAULT_YIELDS = {
 };
 let yieldsState = JSON.parse(JSON.stringify(DEFAULT_YIELDS));
 
-let reservaState = { enabled: true, nome: "", valor: 0, taxa: 14.25, ir: 15 };
+let reservaState = { enabled: true, nome: "", valor: 0, taxa: 14.25, ir: 15, startDate: "" };
 
 function loadYields() {
   try {
@@ -917,6 +924,7 @@ function loadReserva() {
   document.getElementById("reservaValor").value = reservaState.valor > 0 ? fmtNumBR(reservaState.valor) : "";
   document.getElementById("reservaTaxa").value = fmtNumBR(reservaState.taxa);
   document.getElementById("reservaIR").value = fmtNumBR(reservaState.ir, 0);
+  document.getElementById("reservaInicio").value = reservaState.startDate || "";
 }
 function saveReserva() {
   try {
@@ -931,6 +939,7 @@ function renderRenda() {
   reservaState.valor = parseNumBR(document.getElementById("reservaValor").value);
   reservaState.taxa = parseNumBR(document.getElementById("reservaTaxa").value);
   reservaState.ir = parseNumBR(document.getElementById("reservaIR").value);
+  reservaState.startDate = document.getElementById("reservaInicio").value;
 
   let reservaAnnualGross = 0, reservaAnnualNet = 0, reservaMonthlyGross = 0, reservaMonthlyNet = 0;
   if (reservaState.enabled && reservaState.valor > 0) {
@@ -1025,7 +1034,7 @@ function renderRenda() {
 }
 
 // Listeners: reserva + carteira estratégica
-["reservaEnabled", "reservaNome", "reservaValor", "reservaTaxa", "reservaIR"].forEach(id => {
+["reservaEnabled", "reservaNome", "reservaValor", "reservaTaxa", "reservaIR", "reservaInicio"].forEach(id => {
   const el = document.getElementById(id);
   const evt = el.type === "checkbox" ? "change" : "input";
   el.addEventListener(evt, renderRenda);
@@ -1098,8 +1107,17 @@ function buildTimeSeries() {
   const start = new Date(now);
   start.setDate(start.getDate() - config.days);
 
-  const reservaBase = (reservaState.enabled && reservaState.valor > 0) ? reservaState.valor : 0;
-  const reservaYieldNet = reservaBase * (reservaState.taxa / 100) * (1 - reservaState.ir / 100);
+  const reservaActive = (reservaState.enabled && reservaState.valor > 0);
+  const reservaStartRaw = reservaState.startDate ? new Date(reservaState.startDate + "T00:00:00") : null;
+  const reservaStartValid = reservaStartRaw && !isNaN(reservaStartRaw);
+  // Início efetivo da reserva no gráfico: se sem data configurada, considera desde start
+  const reservaGraphStart = reservaActive
+    ? (reservaStartValid ? reservaStartRaw : start)
+    : null;
+
+  const reservaYieldRate = reservaActive
+    ? (reservaState.taxa / 100) * (1 - reservaState.ir / 100)
+    : 0;
 
   const bucketYields = {};
   CATEGORIES.forEach(k => {
@@ -1108,40 +1126,48 @@ function buildTimeSeries() {
 
   const positions = state.positions
     .filter(p => p.date)
-    .map(p => ({ ...p, dateObj: new Date(p.date), yieldRate: bucketYields[p.category] || 0 }))
+    .map(p => ({ ...p, dateObj: new Date(p.date + "T00:00:00"), yieldRate: bucketYields[p.category] || 0 }))
     .filter(p => !isNaN(p.dateObj) && p.dateObj <= now)
     .sort((a, b) => a.dateObj - b.dateObj);
 
-  const points = [];
-  const cursor = new Date(start);
-  while (cursor <= now) {
-    const cursorMs = cursor.getTime();
-    const invested = reservaBase + positions
-      .filter(p => p.dateObj <= cursor)
+  function computeAt(cursorDate) {
+    const cursorMs = cursorDate.getTime();
+    // Reserva só existe a partir do reservaGraphStart
+    const reservaExists = reservaActive && cursorDate >= reservaGraphStart;
+    const reservaAt = reservaExists ? reservaState.valor : 0;
+    const daysReservaRend = reservaExists
+      ? Math.max(0, (cursorMs - reservaGraphStart.getTime()) / 86400000)
+      : 0;
+    const reservaRend = reservaActive && reservaExists
+      ? reservaState.valor * reservaYieldRate * (daysReservaRend / 365)
+      : 0;
+
+    const posInvested = positions
+      .filter(p => p.dateObj <= cursorDate)
       .reduce((s, p) => s + p.value, 0);
-    const daysReserva = Math.max(0, (cursorMs - start.getTime()) / 86400000);
-    const reservaRend = reservaYieldNet * (daysReserva / 365);
     const posRend = positions
-      .filter(p => p.dateObj <= cursor)
+      .filter(p => p.dateObj <= cursorDate)
       .reduce((s, p) => {
         const days = Math.max(0, (cursorMs - p.dateObj.getTime()) / 86400000);
         return s + p.value * p.yieldRate * (days / 365);
       }, 0);
+
+    const invested = reservaAt + posInvested;
     const yielded = reservaRend + posRend;
-    points.push({ date: new Date(cursor), invested, yielded, total: invested + yielded });
+    return { invested, yielded, total: invested + yielded };
+  }
+
+  const points = [];
+  const cursor = new Date(start);
+  while (cursor <= now) {
+    const v = computeAt(cursor);
+    points.push({ date: new Date(cursor), ...v });
     cursor.setDate(cursor.getDate() + config.stepDays);
   }
   const lastPoint = points[points.length - 1];
   if (!lastPoint || lastPoint.date.getTime() < now.getTime()) {
-    const invested = reservaBase + positions.reduce((s, p) => s + p.value, 0);
-    const daysReserva = Math.max(0, (now.getTime() - start.getTime()) / 86400000);
-    const reservaRend = reservaYieldNet * (daysReserva / 365);
-    const posRend = positions.reduce((s, p) => {
-      const days = Math.max(0, (now.getTime() - p.dateObj.getTime()) / 86400000);
-      return s + p.value * p.yieldRate * (days / 365);
-    }, 0);
-    const yielded = reservaRend + posRend;
-    points.push({ date: new Date(now), invested, yielded, total: invested + yielded });
+    const v = computeAt(now);
+    points.push({ date: new Date(now), ...v });
   }
   return points;
 }
@@ -1185,16 +1211,23 @@ function renderChart() {
     gridLabels.push(`<text x="${PAD_L - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" fill="#737373" font-size="10" font-family="ui-monospace">R$ ${compactValue}</text>`);
   }
 
-  const pathData = points.map((p, i) => `${i === 0 ? "M" : "L"} ${xScale(i).toFixed(1)} ${yScale(getValue(p)).toFixed(1)}`).join(" ");
-  const baseY = yScale(minY < 0 ? 0 : minY);
-  const areaData = pathData + ` L ${xScale(points.length - 1).toFixed(1)} ${baseY.toFixed(1)} L ${xScale(0).toFixed(1)} ${baseY.toFixed(1)} Z`;
-
+  const pathBaseY = yScale(Math.max(0, minY));
   const color = chartTab === "investido" ? "#22c55e" : chartTab === "patrimonio" ? "#3b82f6" : "#eab308";
 
-  const showDots = points.length <= 30;
-  const dots = showDots ? points.map((p, i) =>
-    `<circle cx="${xScale(i).toFixed(1)}" cy="${yScale(getValue(p)).toFixed(1)}" r="3" fill="${color}" stroke="#0a0a0a" stroke-width="1"/>`
-  ).join("") : "";
+  // Barras verticais: largura = espaço entre pontos * 0.75 (deixa gap entre elas)
+  const spacing = points.length > 1 ? plotW / (points.length - 1) : plotW;
+  const barWidth = Math.max(2, spacing * 0.75);
+  const bars = points.map((p, i) => {
+    const cx = xScale(i);
+    const v = getValue(p);
+    const yTop = yScale(v);
+    const yBase = pathBaseY;
+    const height = Math.abs(yBase - yTop);
+    const y = Math.min(yTop, yBase);
+    return `<rect x="${(cx - barWidth/2).toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${height.toFixed(1)}" fill="${color}" opacity="0.75" rx="1">
+      <title>${formatDateForPeriod(p.date, chartPeriod)}: ${fmtBRL(v)}</title>
+    </rect>`;
+  }).join("");
 
   const xLabels = [];
   const labelStep = Math.max(1, Math.floor(points.length / 6));
@@ -1206,9 +1239,7 @@ function renderChart() {
   svg.innerHTML = `
     ${gridLines.join("")}
     ${gridLabels.join("")}
-    <path d="${areaData}" fill="${color}" opacity="0.12"/>
-    <path d="${pathData}" fill="none" stroke="${color}" stroke-width="2"/>
-    ${dots}
+    ${bars}
     ${xLabels.join("")}
   `;
 
