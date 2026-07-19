@@ -379,8 +379,8 @@ loadSaidaSignals();
 // O usuário atualiza o saldo quando quiser. Novos aportes se somam.
 
 const WISE_DEFAULT_COINS = [
-  { moeda: "USD", simbolo: "$",  saldoAtual: 102.91,  jaRendeu: 0,    taxa: 3.39, rateBrl: 5.70, enabled: true },
-  { moeda: "EUR", simbolo: "€",  saldoAtual: 1014.21, jaRendeu: 0,    taxa: 1.98, rateBrl: 6.30, enabled: true },
+  { moeda: "USD", simbolo: "$",  saldoAtual: 102.91,  jaRendeu: 0.16, taxa: 3.39, rateBrl: 5.70, enabled: true },
+  { moeda: "EUR", simbolo: "€",  saldoAtual: 1014.21, jaRendeu: 0.97, taxa: 1.98, rateBrl: 6.30, enabled: true },
 ];
 
 let wiseData = {
@@ -391,18 +391,45 @@ let wiseData = {
   eurBrl: 6.30,
 };
 
+function resetWiseToDefaults() {
+  localStorage.removeItem("fin_trader_wise_v1");
+  localStorage.removeItem("fin_trader_wise_v2");
+  wiseData = {
+    coins: JSON.parse(JSON.stringify(WISE_DEFAULT_COINS)),
+    aportes: [], enabled: true, usdBrl: 5.70, eurBrl: 6.30,
+  };
+  saveWise(); loadWise(); renderWise(); renderRenda();
+}
+
 function loadWise() {
+  // Limpar versão antiga se existir
+  localStorage.removeItem("fin_trader_wise_v1");
   try {
     const raw = localStorage.getItem("fin_trader_wise_v2");
     if (raw) {
       const d = JSON.parse(raw);
-      Object.assign(wiseData, d);
+      if (d.coins && Array.isArray(d.coins) && d.coins.length > 0) wiseData.coins = d.coins;
+      if (Array.isArray(d.aportes)) wiseData.aportes = d.aportes;
+      if (typeof d.enabled === "boolean") wiseData.enabled = d.enabled;
+      if (d.usdBrl) wiseData.usdBrl = d.usdBrl;
+      if (d.eurBrl) wiseData.eurBrl = d.eurBrl;
     }
-  } catch(e) { console.warn("Load wise:", e); }
-  // Preencher inputs de cotação
-  document.getElementById("wiseUsdBrl").value = fmtNumBR(wiseData.usdBrl, 4);
-  document.getElementById("wiseEurBrl").value = fmtNumBR(wiseData.eurBrl, 4);
-  document.getElementById("wiseEnabled").checked = wiseData.enabled;
+  } catch(e) {
+    console.warn("Load wise erro, resetando para defaults:", e);
+    localStorage.removeItem("fin_trader_wise_v2");
+  }
+  // Se coins vazio ou inválido, usar defaults com valores reais
+  if (!wiseData.coins || !Array.isArray(wiseData.coins) || wiseData.coins.length === 0) {
+    wiseData.coins = JSON.parse(JSON.stringify(WISE_DEFAULT_COINS));
+    saveWise(); // Salva os defaults pra próxima vez
+  }
+  // Preencher inputs de cotação (só se os elementos existirem)
+  const usdEl = document.getElementById("wiseUsdBrl");
+  const eurEl = document.getElementById("wiseEurBrl");
+  const enEl  = document.getElementById("wiseEnabled");
+  if (usdEl) usdEl.value = fmtNumBR(wiseData.usdBrl, 4);
+  if (eurEl) eurEl.value = fmtNumBR(wiseData.eurBrl, 4);
+  if (enEl)  enEl.checked = wiseData.enabled;
 }
 
 function saveWise() {
@@ -445,6 +472,10 @@ function renderWise() {
   const resultEl = document.getElementById("wiseResult");
   const aportesList = document.getElementById("wiseAportesList");
   if (!container) return;
+  // Garantir que coins está populado antes de renderizar
+  if (!wiseData.coins || wiseData.coins.length === 0) {
+    wiseData.coins = JSON.parse(JSON.stringify(WISE_DEFAULT_COINS));
+  }
 
   container.innerHTML = wiseData.coins.map((c, idx) => {
     const rate = getWiseRate(c.moeda);
@@ -709,8 +740,13 @@ document.getElementById("wiseAporteSave").addEventListener("click", () => {
   document.getElementById("wiseAporteValor").value = "";
 });
 
-loadWise();
-renderWise();
+// Inicializar Wise após DOM pronto
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => { loadWise(); renderWise(); });
+} else {
+  loadWise();
+  renderWise();
+}
 
 </script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -1024,10 +1060,13 @@ renderWise();
             <span class="pill" style="background:rgba(22,163,74,0.15);color:#4ade80;">🌍 Wise Rende+</span>
             <span class="text-xs text-neutral-500">Saldo atual em moeda estrangeira — já inclui rendimentos acumulados</span>
           </div>
-          <label class="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
-            <input type="checkbox" id="wiseEnabled" checked style="width:16px;height:16px;">
-            Incluir no total BRL
-          </label>
+          <div class="flex items-center gap-2">
+            <button onclick="resetWiseToDefaults()" class="secondary text-xs" style="padding:0.2rem 0.5rem;font-size:0.65rem;">↺ Reset</button>
+            <label class="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
+              <input type="checkbox" id="wiseEnabled" checked style="width:16px;height:16px;">
+              Incluir no total BRL
+            </label>
+          </div>
         </div>
 
         <!-- Cotações -->
