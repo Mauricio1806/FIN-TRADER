@@ -918,7 +918,8 @@ loadSaidaSignals();
         <button class="saida-tab" data-saida="alertas">Alertas FIN-TRADER</button>
         <button class="saida-tab" data-saida="tesouro">Tesouro / MtM</button>
         <button class="saida-tab" data-saida="holdvsell">Hold vs Vender</button>
-        <button class="saida-tab" data-saida="historico">Histórico de Vendas</button>
+        <button class="saida-tab" data-saida="historico_ativo">📈 Histórico do Ativo</button>
+        <button class="saida-tab" data-saida="historico">Vendas Realizadas</button>
       </div>
 
       <!-- ABA: REGRAS DE SAÍDA -->
@@ -1121,6 +1122,60 @@ loadSaidaSignals();
           </div>
         </div>
         <div id="hvsResult" class="hidden bg-[#0d0d0d] border border-[#1f1f1f] rounded p-4 space-y-3"></div>
+      </div>
+
+      <!-- ABA: HISTÓRICO DO ATIVO -->
+      <div id="saidaPanel_historico_ativo" class="saida-panel hidden space-y-4">
+        <div class="text-xs text-neutral-400">
+          Preços históricos do ativo via Yahoo Finance. Clique em 📈 na linha da regra pra carregar automaticamente,
+          ou busque manualmente abaixo.
+        </div>
+        <div class="flex gap-2 flex-wrap items-end">
+          <div class="flex-1 min-w-40">
+            <label class="block text-xs text-neutral-500 mb-1">Ticker</label>
+            <input type="text" id="ativoHistTickerInput" placeholder="Ex: IVVB11.SA, PETR4.SA, SPY, QQQ" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Período</label>
+            <select id="ativoHistPeriodo">
+              <option value="5d">5 dias</option>
+              <option value="1mo">1 mês</option>
+              <option value="3mo">3 meses</option>
+              <option value="6mo" selected>6 meses</option>
+              <option value="1y">1 ano</option>
+              <option value="2y">2 anos</option>
+              <option value="5y">5 anos</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Preço entrada (R$)</label>
+            <input type="text" inputmode="decimal" id="ativoHistEntradaInput" placeholder="Opcional" style="width:130px;" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Stop Loss (%)</label>
+            <input type="text" inputmode="decimal" id="ativoHistStopInput" placeholder="Ex: -15" style="width:100px;" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Stop Gain (%)</label>
+            <input type="text" inputmode="decimal" id="ativoHistGainInput" placeholder="Ex: +30" style="width:100px;" />
+          </div>
+          <button id="ativoHistBuscarBtn">Buscar</button>
+        </div>
+        <div class="bg-[#0d0d0d] border border-[#1f1f1f] rounded p-3">
+          <div class="text-xs text-neutral-500 mb-1">
+            Ativo: <span id="ativoHistTicker" class="text-white font-bold">—</span>
+          </div>
+          <svg id="ativoHistChart" viewBox="0 0 800 300" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: auto;">
+            <text x="400" y="150" text-anchor="middle" fill="#737373" font-size="12" font-family="ui-monospace">
+              Selecione um ticker acima ou clique em 📈 em uma regra de saída
+            </text>
+          </svg>
+        </div>
+        <div id="ativoHistStats"></div>
+        <div class="text-xs text-neutral-600">
+          Dados: Yahoo Finance (yfinance). Tickers BR precisam do sufixo .SA (ex: PETR4.SA). ETFs EUA sem sufixo (ex: SPY, QQQ, VOO).
+          Pode haver atraso de 15min nos dados.
+        </div>
       </div>
 
       <!-- ABA: HISTÓRICO DE VENDAS -->
@@ -1989,6 +2044,555 @@ loadReserva();
 renderAll();
 loadSignals();
 setInterval(loadSignals, 5 * 60 * 1000);
+
+// ============ SEÇÃO 10: GESTÃO DE SAÍDA ============
+let regrasState = [];
+let historicoState = [];
+let saidaSignals = [];
+let activeSaidaTab = "regras";
+
+function loadSaida() {
+  try {
+    const r = localStorage.getItem("fin_trader_regras_v1");
+    if (r) regrasState = JSON.parse(r);
+    const h = localStorage.getItem("fin_trader_historico_v1");
+    if (h) historicoState = JSON.parse(h);
+  } catch(e) { console.warn("Load saida:", e); }
+}
+function saveSaida() {
+  try {
+    localStorage.setItem("fin_trader_regras_v1", JSON.stringify(regrasState));
+    localStorage.setItem("fin_trader_historico_v1", JSON.stringify(historicoState));
+  } catch(e) { console.warn("Save saida:", e); }
+}
+
+// ---- TABS ----
+function initSaidaTabs() {
+  document.querySelectorAll(".saida-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".saida-tab").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".saida-panel").forEach(p => p.classList.add("hidden"));
+      btn.classList.add("active");
+      activeSaidaTab = btn.dataset.saida;
+      document.getElementById("saidaPanel_" + activeSaidaTab).classList.remove("hidden");
+      if (activeSaidaTab === "alertas") renderAlertas();
+      if (activeSaidaTab === "historico") renderHistorico();
+      if (activeSaidaTab === "regras") renderRegras();
+      if (activeSaidaTab === "historico_ativo") renderHistoricoAtivo();
+    });
+  });
+}
+
+// ---- REGRAS ----
+function getStatusRegra(regra) {
+  const sig = saidaSignals.find(s =>
+    s.ticker === regra.ticker ||
+    s.ticker === regra.ticker.replace(".SA","") ||
+    regra.ticker === s.ticker + ".SA"
+  );
+  const hoje = new Date();
+  const prazo = regra.prazo ? new Date(regra.prazo + "T00:00:00") : null;
+  if (prazo && hoje > prazo) return { cls: "pill-score-avoid", label: "REVISAR — Prazo vencido" };
+  if (sig) {
+    const minScore = parseFloat(regra.scoreMin || "-0.4");
+    if (sig.score < minScore)
+      return { cls: "pill-score-avoid", label: `SAIR — Score ${sig.score >= 0 ? "+" : ""}${sig.score.toFixed(2)}` };
+    if (sig.score < 0)
+      return { cls: "pill-score-watch", label: `WATCH — Score ${sig.score >= 0 ? "+" : ""}${sig.score.toFixed(2)}` };
+    return { cls: "pill-score-buy", label: `OK — Score +${sig.score.toFixed(2)}` };
+  }
+  return { cls: "pill-score-neutral", label: "OK — sem sinal no brief" };
+}
+
+function renderRegras() {
+  const body = document.getElementById("regrasBody");
+  if (!body) return;
+  if (!regrasState.length) {
+    body.innerHTML = '<tr><td colspan="8" class="text-center text-neutral-600 py-4">Nenhuma regra cadastrada.</td></tr>';
+    return;
+  }
+  body.innerHTML = regrasState.map((r, idx) => {
+    const status = getStatusRegra(r);
+    return `<tr>
+      <td class="text-white font-semibold">${escapeHtml(r.ticker)}</td>
+      <td>${r.entrada ? fmtBRL(parseNumBR(r.entrada)) : "—"}</td>
+      <td class="text-red-400">${r.stopLoss ? r.stopLoss + "%" : "—"}</td>
+      <td class="text-green-400">${r.stopGain ? r.stopGain + "%" : "—"}</td>
+      <td>${r.scoreMin || "—"}</td>
+      <td class="text-neutral-400">${r.prazo || "—"}</td>
+      <td><span class="pill ${status.cls}">${status.label}</span></td>
+      <td class="text-right">
+        <button class="secondary text-xs mr-1" data-viewhist="${idx}" title="Ver histórico do ativo">📈</button>
+        <button class="danger text-xs" data-delreg="${idx}">×</button>
+      </td>
+    </tr>`;
+  }).join("");
+  body.querySelectorAll("[data-delreg]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (confirm("Remover regra?")) {
+        regrasState.splice(parseInt(btn.dataset.delreg), 1);
+        saveSaida(); renderRegras(); renderAlertas();
+      }
+    });
+  });
+  body.querySelectorAll("[data-viewhist]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const r = regrasState[parseInt(btn.dataset.viewhist)];
+      // Troca pra aba histórico do ativo e carrega
+      document.querySelectorAll(".saida-tab").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".saida-panel").forEach(p => p.classList.add("hidden"));
+      const histTab = document.querySelector('[data-saida="historico_ativo"]');
+      if (histTab) { histTab.classList.add("active"); }
+      document.getElementById("saidaPanel_historico_ativo").classList.remove("hidden");
+      activeSaidaTab = "historico_ativo";
+      loadAtivoHistorico(r.ticker, r.entrada, r.stopLoss, r.stopGain);
+    });
+  });
+}
+
+const regraFormEl = document.getElementById("regraForm");
+const addRegraBtn = document.getElementById("addRegraBtn");
+const cancelRegraBtn = document.getElementById("cancelRegraBtn");
+const saveRegraBtn = document.getElementById("saveRegraBtn");
+if (addRegraBtn) addRegraBtn.addEventListener("click", () => {
+  regraFormEl.classList.remove("hidden");
+  document.getElementById("regraTicker").focus();
+});
+if (cancelRegraBtn) cancelRegraBtn.addEventListener("click", () => {
+  regraFormEl.classList.add("hidden");
+});
+if (saveRegraBtn) saveRegraBtn.addEventListener("click", () => {
+  const ticker = document.getElementById("regraTicker").value.trim().toUpperCase();
+  if (!ticker) return alert("Informe o ticker.");
+  regrasState.push({
+    ticker,
+    tipo: document.getElementById("regraTipo").value,
+    entrada: document.getElementById("regraEntrada").value,
+    stopLoss: document.getElementById("regraStopLoss").value,
+    stopGain: document.getElementById("regraStopGain").value,
+    scoreMin: document.getElementById("regraScoreMin").value,
+    prazo: document.getElementById("regraPrazo").value,
+    tese: document.getElementById("regraTese").value,
+  });
+  saveSaida(); renderRegras(); renderAlertas();
+  regraFormEl.classList.add("hidden");
+  ["regraTicker","regraEntrada","regraStopLoss","regraStopGain","regraScoreMin","regraPrazo","regraTese"]
+    .forEach(id => { const el = document.getElementById(id); if(el) el.value = ""; });
+});
+
+// ---- HISTÓRICO DO ATIVO (nova aba) ----
+async function loadAtivoHistorico(ticker, entrada, stopLoss, stopGain) {
+  const panel = document.getElementById("saidaPanel_historico_ativo");
+  if (!panel) return;
+  const tickerDisplay = document.getElementById("ativoHistTicker");
+  const chartEl = document.getElementById("ativoHistChart");
+  const statsEl = document.getElementById("ativoHistStats");
+  const periodoEl = document.getElementById("ativoHistPeriodo");
+  if (tickerDisplay) tickerDisplay.textContent = ticker;
+  if (chartEl) chartEl.innerHTML = `<text x="400" y="160" text-anchor="middle" fill="#737373" font-size="12" font-family="ui-monospace">Carregando ${ticker}…</text>`;
+  if (statsEl) statsEl.innerHTML = "";
+
+  const periodo = periodoEl ? periodoEl.value : "6mo";
+  // Yahoo Finance via proxy público (sem CORS issues)
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${periodo}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const result = data.chart?.result?.[0];
+    if (!result) throw new Error("Sem dados");
+    const timestamps = result.timestamp;
+    const closes = result.indicators.quote[0].close;
+    const highs = result.indicators.quote[0].high;
+    const lows = result.indicators.quote[0].low;
+    // Filtrar nulls
+    const points = timestamps.map((ts, i) => ({
+      date: new Date(ts * 1000),
+      close: closes[i], high: highs[i], low: lows[i]
+    })).filter(p => p.close != null);
+
+    if (!points.length) throw new Error("Sem preços");
+    drawAtivoChart(points, ticker, parseNumBR(entrada || "0"), parseFloat(stopLoss || "0"), parseFloat(stopGain || "0"), statsEl);
+  } catch(e) {
+    if (chartEl) chartEl.innerHTML = `<text x="400" y="140" text-anchor="middle" fill="#fca5a5" font-size="12" font-family="ui-monospace">Erro ao carregar ${ticker}: ${e.message}</text>
+    <text x="400" y="165" text-anchor="middle" fill="#737373" font-size="11" font-family="ui-monospace">Verifique se o ticker está correto (ex: IVVB11.SA, PETR4.SA, SPY)</text>`;
+  }
+}
+
+function drawAtivoChart(points, ticker, entrada, stopLossPct, stopGainPct) {
+  const chartEl = document.getElementById("ativoHistChart");
+  const statsEl = document.getElementById("ativoHistStats");
+  if (!chartEl) return;
+  const W = 800, H = 300, PAD_L = 65, PAD_R = 20, PAD_T = 30, PAD_B = 35;
+  const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
+  const prices = points.map(p => p.close);
+  const minP = Math.min(...prices), maxP = Math.max(...prices);
+  const range = maxP - minP || 1;
+  const xS = i => PAD_L + (i / (points.length - 1)) * plotW;
+  const yS = v => PAD_T + plotH - ((v - minP) / range) * plotH;
+
+  // Grid e labels Y
+  const gridLines = [], gridLabels = [];
+  for (let i = 0; i <= 4; i++) {
+    const v = minP + range * i / 4;
+    const y = yS(v);
+    gridLines.push(`<line x1="${PAD_L}" y1="${y.toFixed(1)}" x2="${W-PAD_R}" y2="${y.toFixed(1)}" stroke="#1f1f1f" stroke-width="1"/>`);
+    gridLabels.push(`<text x="${PAD_L-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="#737373" font-size="10" font-family="ui-monospace">${v >= 1000 ? (v/1000).toFixed(1)+"k" : v.toFixed(2)}</text>`);
+  }
+
+  // Linha de preço
+  const pathD = points.map((p, i) => `${i===0?"M":"L"} ${xS(i).toFixed(1)} ${yS(p.close).toFixed(1)}`).join(" ");
+  const baseY = yS(minP);
+  const areaD = pathD + ` L ${xS(points.length-1).toFixed(1)} ${baseY.toFixed(1)} L ${PAD_L} ${baseY.toFixed(1)} Z`;
+  const priceColor = points[points.length-1].close >= points[0].close ? "#22c55e" : "#ef4444";
+
+  // Linhas de entrada, stop loss, stop gain
+  const refLines = [];
+  if (entrada > 0) {
+    const yE = yS(entrada);
+    refLines.push(`<line x1="${PAD_L}" y1="${yE.toFixed(1)}" x2="${W-PAD_R}" y2="${yE.toFixed(1)}" stroke="#22c55e" stroke-width="1" stroke-dasharray="5,3"/>`);
+    refLines.push(`<text x="${W-PAD_R-2}" y="${(yE-4).toFixed(1)}" text-anchor="end" fill="#22c55e" font-size="9" font-family="ui-monospace">Entrada ${fmtBRL(entrada)}</text>`);
+    if (stopLossPct < 0) {
+      const slPrice = entrada * (1 + stopLossPct / 100);
+      if (slPrice >= minP && slPrice <= maxP) {
+        const yL = yS(slPrice);
+        refLines.push(`<line x1="${PAD_L}" y1="${yL.toFixed(1)}" x2="${W-PAD_R}" y2="${yL.toFixed(1)}" stroke="#ef4444" stroke-width="1" stroke-dasharray="5,3"/>`);
+        refLines.push(`<text x="${W-PAD_R-2}" y="${(yL-4).toFixed(1)}" text-anchor="end" fill="#ef4444" font-size="9" font-family="ui-monospace">Stop ${stopLossPct}%</text>`);
+      }
+    }
+    if (stopGainPct > 0) {
+      const sgPrice = entrada * (1 + stopGainPct / 100);
+      if (sgPrice >= minP && sgPrice <= maxP) {
+        const yG = yS(sgPrice);
+        refLines.push(`<line x1="${PAD_L}" y1="${yG.toFixed(1)}" x2="${W-PAD_R}" y2="${yG.toFixed(1)}" stroke="#a855f7" stroke-width="1" stroke-dasharray="5,3"/>`);
+        refLines.push(`<text x="${W-PAD_R-2}" y="${(yG-4).toFixed(1)}" text-anchor="end" fill="#a855f7" font-size="9" font-family="ui-monospace">Gain ${stopGainPct}%</text>`);
+      }
+    }
+  }
+
+  // Labels X (6 pontos)
+  const xLabels = [];
+  const step = Math.max(1, Math.floor(points.length / 6));
+  for (let i = 0; i < points.length; i += step) {
+    const d = points[i].date;
+    const label = `${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}`;
+    xLabels.push(`<text x="${xS(i).toFixed(1)}" y="${H-PAD_B+18}" text-anchor="middle" fill="#737373" font-size="10" font-family="ui-monospace">${label}</text>`);
+  }
+
+  // Título
+  const first = points[0].close, last = points[points.length-1].close;
+  const pct = ((last - first) / first * 100);
+
+  chartEl.innerHTML = `
+    <text x="${PAD_L}" y="18" fill="#e5e5e5" font-size="11" font-family="ui-monospace" font-weight="bold">${ticker}</text>
+    <text x="${W-PAD_R}" y="18" text-anchor="end" fill="${pct>=0?'#86efac':'#fca5a5'}" font-size="11" font-family="ui-monospace">${pct>=0?"+":""}${pct.toFixed(2)}% no período</text>
+    ${gridLines.join("")}
+    ${gridLabels.join("")}
+    <path d="${areaD}" fill="${priceColor}" opacity="0.1"/>
+    <path d="${pathD}" fill="none" stroke="${priceColor}" stroke-width="1.5"/>
+    ${refLines.join("")}
+    ${xLabels.join("")}
+  `;
+
+  // Stats
+  const hoje = last;
+  const maxPeriod = Math.max(...prices), minPeriod = Math.min(...prices);
+  const distStop = entrada > 0 && stopLossPct < 0 ? ((hoje - entrada * (1 + stopLossPct/100)) / hoje * 100) : null;
+  const distGain = entrada > 0 && stopGainPct > 0 ? ((entrada * (1 + stopGainPct/100) - hoje) / hoje * 100) : null;
+  const pnlPct = entrada > 0 ? ((hoje - entrada) / entrada * 100) : null;
+
+  if (statsEl) statsEl.innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 border-t border-[#1f1f1f] pt-3">
+      <div class="metric"><div class="metric-value text-white">${fmtBRL(hoje)}</div><div class="metric-label">Preço atual</div></div>
+      <div class="metric"><div class="metric-value" style="color:${pct>=0?'#86efac':'#fca5a5'}">${pct>=0?"+":""}${pct.toFixed(2)}%</div><div class="metric-label">Var. período</div></div>
+      ${pnlPct !== null ? `<div class="metric"><div class="metric-value" style="color:${pnlPct>=0?'#86efac':'#fca5a5'}">${pnlPct>=0?"+":""}${pnlPct.toFixed(2)}%</div><div class="metric-label">P&L desde entrada</div></div>` : ""}
+      ${distStop !== null ? `<div class="metric"><div class="metric-value text-red-400">${distStop.toFixed(1)}%</div><div class="metric-label">Distância stop loss</div></div>` : ""}
+      ${distGain !== null ? `<div class="metric"><div class="metric-value text-purple-400">${distGain.toFixed(1)}%</div><div class="metric-label">Falta p/ stop gain</div></div>` : ""}
+    </div>
+  `;
+}
+
+// ---- ALERTAS FIN-TRADER ----
+async function loadSaidaSignals() {
+  const statusEl = document.getElementById("saidaSignalStatus");
+  if (statusEl) statusEl.textContent = "Carregando…";
+  try {
+    const res = await fetch(`https://api.github.com/repos/Mauricio1806/FIN-TRADER/contents/reports`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const files = await res.json();
+    const mds = files.filter(f => f.type==="file" && f.name.endsWith(".md"))
+                     .sort((a,b) => b.name.localeCompare(a.name));
+    if (!mds.length) throw new Error("Sem briefs");
+    const mdRes = await fetch(`https://raw.githubusercontent.com/Mauricio1806/FIN-TRADER/main/reports/${mds[0].name}`);
+    const md = await mdRes.text();
+    const tmp = document.createElement("div");
+    tmp.innerHTML = marked.parse(md);
+    const rows = [];
+    tmp.querySelectorAll("table").forEach(t => {
+      const headers = Array.from(t.querySelectorAll("thead th, tr:first-child th"))
+        .map(th => th.textContent.trim().toLowerCase());
+      const iTicker = headers.findIndex(h => h.includes("ticker"));
+      const iScore = headers.findIndex(h => h === "score" || h.includes("score"));
+      const iName = headers.findIndex(h => h.includes("nome"));
+      if (iTicker === -1 || iScore === -1) return;
+      t.querySelectorAll("tbody tr").forEach(tr => {
+        const cells = Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim());
+        if (cells.length <= Math.max(iTicker, iScore)) return;
+        const score = parseFloat((cells[iScore]||"").replace(/[+\s]/g,"").replace(",","."));
+        if (!cells[iTicker] || isNaN(score)) return;
+        rows.push({ ticker: cells[iTicker], score, name: iName >= 0 ? cells[iName] : "" });
+      });
+    });
+    const map = new Map();
+    for (const r of rows) {
+      const cur = map.get(r.ticker);
+      if (!cur || Math.abs(r.score) > Math.abs(cur.score)) map.set(r.ticker, r);
+    }
+    saidaSignals = Array.from(map.values());
+    if (statusEl) statusEl.textContent = `Brief: ${mds[0].name.replace(".md","")}`;
+    if (activeSaidaTab === "regras") renderRegras();
+    if (activeSaidaTab === "alertas") renderAlertas();
+  } catch(e) {
+    if (statusEl) statusEl.textContent = "Erro ao carregar";
+    console.warn("saidaSignals:", e);
+  }
+}
+const saidaRefreshBtn = document.getElementById("saidaRefreshSignals");
+if (saidaRefreshBtn) saidaRefreshBtn.addEventListener("click", loadSaidaSignals);
+
+function renderAlertas() {
+  const el = document.getElementById("alertasList");
+  if (!el) return;
+  if (!regrasState.length) {
+    el.innerHTML = '<div class="text-sm text-neutral-500 text-center py-4">Cadastre regras de saída na aba anterior.</div>';
+    return;
+  }
+  el.innerHTML = regrasState.map(r => {
+    const status = getStatusRegra(r);
+    const sig = saidaSignals.find(s => s.ticker === r.ticker || s.ticker === r.ticker.replace(".SA","") || r.ticker === s.ticker + ".SA");
+    const cls = status.label.startsWith("SAIR") || status.label.startsWith("REVISAR") ? "danger"
+               : status.label.startsWith("WATCH") ? "warn" : "ok";
+    return `<div class="alerta-card ${cls}">
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+        <div class="flex items-center gap-2">
+          <span class="text-white font-bold">${escapeHtml(r.ticker)}</span>
+          <span class="pill ${status.cls}">${status.label}</span>
+        </div>
+        <span class="text-xs text-neutral-400">Stop gain: ${r.stopGain||"—"}% · Stop loss: ${r.stopLoss||"—"}%</span>
+      </div>
+      ${r.tese ? `<div class="text-xs text-neutral-400 mt-1"><b>Tese de saída:</b> ${escapeHtml(r.tese)}</div>` : ""}
+      ${sig ? `<div class="text-xs text-neutral-500 mt-1">FIN-TRADER: score ${sig.score >= 0 ? "+" : ""}${sig.score.toFixed(2)} · ${sig.name||""}</div>` : '<div class="text-xs text-neutral-600 mt-1">Ativo não encontrado no último brief</div>'}
+    </div>`;
+  }).join("");
+}
+
+// ---- TESOURO / MTM ----
+const calcMtmBtn = document.getElementById("calcMtmBtn");
+if (calcMtmBtn) calcMtmBtn.addEventListener("click", () => {
+  const taxaCompra = parseNumBR(document.getElementById("tesTotalCompra").value) / 100;
+  const taxaHoje = parseNumBR(document.getElementById("tesTaxaHoje").value) / 100;
+  const ipca = parseNumBR(document.getElementById("tesIpca").value) / 100;
+  const valor = parseNumBR(document.getElementById("tesValor").value);
+  const venc = document.getElementById("tesVencimento").value;
+  const compra = document.getElementById("tesDataCompra").value;
+  if (!taxaCompra || !taxaHoje || !valor || !venc || !compra) return alert("Preencha todos os campos.");
+  const hoje = new Date();
+  const dtCompra = new Date(compra + "T00:00:00");
+  const dtVenc = new Date(venc + "T00:00:00");
+  const diasTotal = (dtVenc - dtCompra) / 86400000;
+  const diasDecorridos = (hoje - dtCompra) / 86400000;
+  const diasRestantes = (dtVenc - hoje) / 86400000;
+  const pctDecorrido = diasDecorridos / diasTotal * 100;
+  const valorFuturo = valor * (1 + ipca) * Math.pow(1 + taxaCompra, diasTotal / 365);
+  const valorMercado = valorFuturo / Math.pow(1 + taxaHoje, diasRestantes / 365);
+  const ganhoCapital = valorMercado - valor;
+  const pctGanho = (ganhoCapital / valor) * 100;
+  const aliquotaIr = diasDecorridos <= 180 ? 0.225 : diasDecorridos <= 360 ? 0.20 : diasDecorridos <= 720 ? 0.175 : 0.15;
+  const irBruto = Math.max(0, ganhoCapital * aliquotaIr);
+  const liquidoVendaHoje = valorMercado - irBruto;
+  const ganhoVencLiq = (valorFuturo - valor) * (1 - 0.15);
+  const verdict = taxaHoje < taxaCompra - 0.005
+    ? "✅ Juros caíram — você tem ganho de capital latente. Avalie vender se precisar do capital ou encontrou reinvestimento superior."
+    : taxaHoje > taxaCompra + 0.005
+    ? "❌ Juros subiram — vender agora seria com desconto. Aguardar o vencimento garante a taxa contratada."
+    : "⚠️ Juros praticamente estáveis — pouco benefício de vender agora. Reavalie em 3 meses.";
+  const resEl = document.getElementById("mtmResult");
+  resEl.innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+      <div class="metric"><div class="metric-value text-white">${fmtBRL(valorMercado)}</div><div class="metric-label">Valor mercado hoje</div></div>
+      <div class="metric"><div class="metric-value" style="color:${ganhoCapital>=0?'#86efac':'#fca5a5'}">${fmtBRL(liquidoVendaHoje)}</div><div class="metric-label">Líquido se vender hoje</div></div>
+      <div class="metric"><div class="metric-value text-blue-400">${fmtBRL(valorFuturo)}</div><div class="metric-label">Se segurar até venc.</div></div>
+      <div class="metric"><div class="metric-value text-yellow-400">${pctDecorrido.toFixed(1)}%</div><div class="metric-label">% prazo decorrido</div></div>
+    </div>
+    <div class="text-xs space-y-1 border-t border-[#1f1f1f] pt-3">
+      <div>Ganho bruto: <b>${fmtBRL(ganhoCapital)}</b> (${pctGanho>=0?"+":""}${pctGanho.toFixed(2)}%) · IR (${(aliquotaIr*100).toFixed(1)}%): <b>${fmtBRL(irBruto)}</b></div>
+      <div>Dias decorridos: ${Math.round(diasDecorridos)} · Restantes: ${Math.round(diasRestantes)}</div>
+      <div class="mt-2 p-2 bg-[#0a0a0a] rounded text-neutral-300">${verdict}</div>
+    </div>
+  `;
+  resEl.classList.remove("hidden");
+});
+
+// ---- HOLD VS SELL ----
+const calcHvsBtn = document.getElementById("calcHvsBtn");
+if (calcHvsBtn) calcHvsBtn.addEventListener("click", () => {
+  const entrada = parseNumBR(document.getElementById("hvsEntrada").value);
+  const atual = parseNumBR(document.getElementById("hvsAtual").value);
+  const retHold = parseNumBR(document.getElementById("hvsRetornoHold").value) / 100;
+  const retNovo = parseNumBR(document.getElementById("hvsRetornoNovo").value) / 100;
+  const horizonte = parseNumBR(document.getElementById("hvsHorizonte").value) || 3;
+  const custoSaida = parseNumBR(document.getElementById("hvsCustoSaida").value) || 0;
+  const tipo = document.getElementById("hvsTipo").value;
+  const dtCompra = document.getElementById("hvsDataCompra").value;
+  if (!entrada || !atual || !retHold || !retNovo) return alert("Preencha os campos obrigatórios.");
+  const diasDecorridos = dtCompra ? (new Date() - new Date(dtCompra + "T00:00:00")) / 86400000 : 0;
+  const aliquota = ["cdb","tesouro"].includes(tipo)
+    ? (diasDecorridos <= 180 ? 0.225 : diasDecorridos <= 360 ? 0.20 : diasDecorridos <= 720 ? 0.175 : 0.15)
+    : 0.15;
+  const lucroAtual = Math.max(0, atual - entrada);
+  const ir = lucroAtual * aliquota;
+  const capitalLiq = atual - ir - custoSaida;
+  const holdFinal = atual * Math.pow(1 + retHold, horizonte);
+  const vendaFinal = capitalLiq * Math.pow(1 + retNovo, horizonte);
+  const diff = vendaFinal - holdFinal;
+  const verdict = diff > 0
+    ? `✅ <b>Vender e reinvestir</b> gera <b>${fmtBRL(diff)}</b> a mais em ${horizonte}a.`
+    : `🔒 <b>Manter (hold)</b> gera <b>${fmtBRL(Math.abs(diff))}</b> a mais em ${horizonte}a.`;
+  const resEl = document.getElementById("hvsResult");
+  resEl.innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+      <div class="metric"><div class="metric-value text-white">${fmtBRL(capitalLiq)}</div><div class="metric-label">Capital líquido se vender</div></div>
+      <div class="metric"><div class="metric-value text-blue-400">${fmtBRL(holdFinal)}</div><div class="metric-label">Hold em ${horizonte}a</div></div>
+      <div class="metric"><div class="metric-value text-green-400">${fmtBRL(vendaFinal)}</div><div class="metric-label">Vender+Reinvestir em ${horizonte}a</div></div>
+      <div class="metric"><div class="metric-value" style="color:${diff>=0?'#86efac':'#93c5fd'}">${fmtBRL(Math.abs(diff))}</div><div class="metric-label">Diferença final</div></div>
+    </div>
+    <div class="text-xs border-t border-[#1f1f1f] pt-3">
+      <div>IR na venda: <b>${fmtBRL(ir)}</b> (${(aliquota*100).toFixed(1)}% sobre lucro de ${fmtBRL(lucroAtual)})</div>
+      <div class="mt-2 p-2 bg-[#0a0a0a] rounded text-neutral-300">${verdict}</div>
+      <div class="mt-1 text-neutral-500">* Projeção sem inflação. Use como referência comparativa.</div>
+    </div>
+  `;
+  resEl.classList.remove("hidden");
+});
+
+// ---- HISTÓRICO DE VENDAS ----
+const MOTIVO_LABELS = {
+  stop_gain:"Stop gain", stop_loss:"Stop loss", score_baixo:"Score baixo",
+  rebalanceamento:"Rebalanceamento", vencimento:"Vencimento", necessidade:"Liquidez",
+  mudanca_tese:"Mudança de tese", outro:"Outro"
+};
+function renderHistorico() {
+  const body = document.getElementById("historicoBody");
+  const statsEl = document.getElementById("historicoStats");
+  if (!body) return;
+  if (!historicoState.length) {
+    body.innerHTML = '<tr><td colspan="9" class="text-center text-neutral-600 py-4">Nenhuma venda registrada.</td></tr>';
+    if (statsEl) statsEl.classList.add("hidden");
+    return;
+  }
+  let totalBruto = 0, totalIr = 0, wins = 0;
+  body.innerHTML = historicoState.map((v, idx) => {
+    const ent = parseNumBR(v.entrada), sai = parseNumBR(v.saida);
+    const pnlBruto = sai - ent;
+    const dias = v.dataCompra ? (new Date(v.data+"T00:00:00") - new Date(v.dataCompra+"T00:00:00")) / 86400000 : 0;
+    const aliq = ["cdb","tesouro"].includes(v.tipo)
+      ? (dias<=180?0.225:dias<=360?0.20:dias<=720?0.175:0.15) : 0.15;
+    const ir = Math.max(0, pnlBruto * aliq);
+    const pnlLiq = pnlBruto - ir;
+    totalBruto += pnlBruto; totalIr += ir;
+    if (pnlBruto > 0) wins++;
+    const c = pnlLiq >= 0 ? "#86efac" : "#fca5a5";
+    return `<tr>
+      <td class="text-white font-semibold">${escapeHtml(v.ticker)}</td>
+      <td class="text-xs text-neutral-400">${v.tipo}</td>
+      <td class="text-neutral-400 text-xs">${v.dataCompra||"—"}</td>
+      <td class="text-neutral-400 text-xs">${v.data||"—"}</td>
+      <td class="text-right" style="color:${c}">${fmtBRL(pnlBruto)}</td>
+      <td class="text-right text-red-400">-${fmtBRL(ir)}</td>
+      <td class="text-right font-bold" style="color:${c}">${fmtBRL(pnlLiq)}</td>
+      <td><span class="pill ${pnlLiq>=0?'pill-score-buy':'pill-score-avoid'}">${MOTIVO_LABELS[v.motivo]||v.motivo}</span></td>
+      <td class="text-right"><button class="danger text-xs" data-delvenda="${idx}">×</button></td>
+    </tr>`;
+  }).join("");
+  body.querySelectorAll("[data-delvenda]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (confirm("Remover?")) { historicoState.splice(parseInt(btn.dataset.delvenda),1); saveSaida(); renderHistorico(); }
+    });
+  });
+  const totalLiq = totalBruto - totalIr;
+  const hitRate = historicoState.length > 0 ? wins/historicoState.length*100 : 0;
+  if (statsEl) {
+    statsEl.classList.remove("hidden");
+    statsEl.innerHTML = `
+      <div class="metric"><div class="metric-value" style="color:${totalBruto>=0?'#86efac':'#fca5a5'}">${fmtBRL(totalBruto)}</div><div class="metric-label">P&L Bruto Total</div></div>
+      <div class="metric"><div class="metric-value text-red-400">-${fmtBRL(totalIr)}</div><div class="metric-label">IR Estimado</div></div>
+      <div class="metric"><div class="metric-value" style="color:${totalLiq>=0?'#86efac':'#fca5a5'}">${fmtBRL(totalLiq)}</div><div class="metric-label">P&L Líquido</div></div>
+      <div class="metric"><div class="metric-value text-yellow-400">${hitRate.toFixed(0)}%</div><div class="metric-label">Hit Rate</div></div>
+    `;
+  }
+}
+const addVendaBtn = document.getElementById("addVendaBtn");
+const cancelVendaBtn = document.getElementById("cancelVendaBtn");
+const saveVendaBtn = document.getElementById("saveVendaBtn");
+const vendaFormEl = document.getElementById("vendaForm");
+if (addVendaBtn) addVendaBtn.addEventListener("click", () => {
+  vendaFormEl.classList.remove("hidden");
+  document.getElementById("vendaData").value = new Date().toISOString().slice(0,10);
+  document.getElementById("vendaTicker").focus();
+});
+if (cancelVendaBtn) cancelVendaBtn.addEventListener("click", () => vendaFormEl.classList.add("hidden"));
+if (saveVendaBtn) saveVendaBtn.addEventListener("click", () => {
+  const ticker = document.getElementById("vendaTicker").value.trim().toUpperCase();
+  const saida = parseNumBR(document.getElementById("vendaSaida").value);
+  const entrada = parseNumBR(document.getElementById("vendaEntrada").value);
+  if (!ticker || !saida || !entrada) return alert("Preencha ticker, valor entrada e valor saída.");
+  historicoState.unshift({
+    ticker, tipo: document.getElementById("vendaTipo").value,
+    data: document.getElementById("vendaData").value,
+    dataCompra: document.getElementById("vendaDataCompra").value,
+    entrada: document.getElementById("vendaEntrada").value,
+    saida: document.getElementById("vendaSaida").value,
+    motivo: document.getElementById("vendaMotivo").value,
+    racional: document.getElementById("vendaRacional").value,
+  });
+  saveSaida(); renderHistorico();
+  vendaFormEl.classList.add("hidden");
+  ["vendaTicker","vendaData","vendaDataCompra","vendaEntrada","vendaSaida","vendaRacional"]
+    .forEach(id => { const el=document.getElementById(id); if(el) el.value=""; });
+});
+
+// ---- INIT ----
+loadSaida();
+initSaidaTabs();
+loadSaidaSignals();
+setInterval(loadSaidaSignals, 5 * 60 * 1000);
+
+// Busca manual do histórico do ativo
+const ativoHistBuscarBtn = document.getElementById("ativoHistBuscarBtn");
+if (ativoHistBuscarBtn) {
+  ativoHistBuscarBtn.addEventListener("click", () => {
+    const ticker = (document.getElementById("ativoHistTickerInput").value || "").trim().toUpperCase();
+    if (!ticker) return alert("Informe o ticker.");
+    if (document.getElementById("ativoHistTicker")) {
+      document.getElementById("ativoHistTicker").textContent = ticker;
+    }
+    const entrada = document.getElementById("ativoHistEntradaInput").value;
+    const stop = document.getElementById("ativoHistStopInput").value;
+    const gain = document.getElementById("ativoHistGainInput").value;
+    loadAtivoHistorico(ticker, entrada, stop, gain);
+  });
+  // Carregar ao mudar período também
+  document.getElementById("ativoHistPeriodo").addEventListener("change", () => {
+    const ticker = (document.getElementById("ativoHistTicker").textContent || "").trim();
+    if (ticker && ticker !== "—") {
+      const entrada = document.getElementById("ativoHistEntradaInput").value;
+      const stop = document.getElementById("ativoHistStopInput").value;
+      const gain = document.getElementById("ativoHistGainInput").value;
+      loadAtivoHistorico(ticker, entrada, stop, gain);
+    }
+  });
+}
+
 </script>
 
 </body>
