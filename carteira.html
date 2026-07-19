@@ -5,7 +5,374 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0a0a" />
 <title>FIN-TRADER — Carteira</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com">
+// ============ SEÇÃO 10: GESTÃO DE SAÍDA ============
+let regrasState = [];
+let historicoState = [];
+let saidaSignals = [];
+let activeTab = "regras";
+
+function loadSaida() {
+  try {
+    const r = localStorage.getItem("fin_trader_regras_v1");
+    if (r) regrasState = JSON.parse(r);
+    const h = localStorage.getItem("fin_trader_historico_v1");
+    if (h) historicoState = JSON.parse(h);
+  } catch(e) { console.warn("Load saida:", e); }
+}
+function saveSaida() {
+  try {
+    localStorage.setItem("fin_trader_regras_v1", JSON.stringify(regrasState));
+    localStorage.setItem("fin_trader_historico_v1", JSON.stringify(historicoState));
+  } catch(e) { console.warn("Save saida:", e); }
+}
+
+// ---- TABS ----
+document.querySelectorAll(".saida-tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".saida-tab").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".saida-panel").forEach(p => p.classList.add("hidden"));
+    btn.classList.add("active");
+    activeTab = btn.dataset.saida;
+    document.getElementById("saidaPanel_" + activeTab).classList.remove("hidden");
+    if (activeTab === "alertas") renderAlertas();
+    if (activeTab === "historico") renderHistorico();
+    if (activeTab === "regras") renderRegras();
+  });
+});
+
+// ---- REGRAS ----
+const IR_RATES = {
+  acao: 0.15, etf_ext: 0.15, fundo: 0.15, tesouro: 0.15, cdb: 0.15
+};
+function getStatusRegra(regra) {
+  const sig = saidaSignals.find(s => s.ticker === regra.ticker || s.ticker === regra.ticker.replace(".SA",""));
+  const hoje = new Date();
+  const prazo = regra.prazo ? new Date(regra.prazo + "T00:00:00") : null;
+  if (prazo && hoje > prazo) return { cls: "pill-score-avoid", label: "REVISAR — Prazo vencido" };
+  if (sig) {
+    if (sig.score < parseFloat(regra.scoreMin || "-0.4"))
+      return { cls: "pill-score-avoid", label: `SAIR — Score ${sig.score.toFixed(2)}` };
+    if (sig.score < 0)
+      return { cls: "pill-score-watch", label: `WATCH — Score ${sig.score.toFixed(2)}` };
+  }
+  return { cls: "pill-score-buy", label: sig ? `OK — Score ${sig.score.toFixed(2)}` : "OK — sem sinal" };
+}
+function renderRegras() {
+  const body = document.getElementById("regrasBody");
+  if (!regrasState.length) {
+    body.innerHTML = '<tr><td colspan="8" class="text-center text-neutral-600 py-4">Nenhuma regra cadastrada.</td></tr>';
+    return;
+  }
+  body.innerHTML = regrasState.map((r, idx) => {
+    const status = getStatusRegra(r);
+    return `<tr>
+      <td class="text-white font-semibold">${escapeHtml(r.ticker)}</td>
+      <td>${fmtBRL(parseNumBR(r.entrada))}</td>
+      <td class="text-red-400">${r.stopLoss || "—"}%</td>
+      <td class="text-green-400">${r.stopGain || "—"}%</td>
+      <td>${r.scoreMin || "—"}</td>
+      <td class="text-neutral-400">${r.prazo || "—"}</td>
+      <td><span class="pill ${status.cls}">${status.label}</span></td>
+      <td class="text-right"><button class="danger text-xs" data-delreg="${idx}">×</button></td>
+    </tr>`;
+  }).join("");
+  body.querySelectorAll("[data-delreg]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (confirm("Remover regra?")) {
+        regrasState.splice(parseInt(btn.dataset.delreg), 1);
+        saveSaida(); renderRegras(); renderAlertas();
+      }
+    });
+  });
+}
+document.getElementById("addRegraBtn").addEventListener("click", () => {
+  document.getElementById("regraForm").classList.remove("hidden");
+  document.getElementById("regraTicker").focus();
+});
+document.getElementById("cancelRegraBtn").addEventListener("click", () => {
+  document.getElementById("regraForm").classList.add("hidden");
+});
+document.getElementById("saveRegraBtn").addEventListener("click", () => {
+  const ticker = document.getElementById("regraTicker").value.trim().toUpperCase();
+  if (!ticker) return alert("Informe o ticker.");
+  regrasState.push({
+    ticker,
+    tipo: document.getElementById("regraTipo").value,
+    entrada: document.getElementById("regraEntrada").value,
+    stopLoss: document.getElementById("regraStopLoss").value,
+    stopGain: document.getElementById("regraStopGain").value,
+    scoreMin: document.getElementById("regraScoreMin").value,
+    prazo: document.getElementById("regraPrazo").value,
+    tese: document.getElementById("regraTese").value,
+  });
+  saveSaida(); renderRegras(); renderAlertas();
+  document.getElementById("regraForm").classList.add("hidden");
+  ["regraTicker","regraEntrada","regraStopLoss","regraStopGain","regraScoreMin","regraPrazo","regraTese"]
+    .forEach(id => document.getElementById(id).value = "");
+});
+
+// ---- ALERTAS FIN-TRADER ----
+async function loadSaidaSignals() {
+  document.getElementById("saidaSignalStatus").textContent = "Carregando…";
+  try {
+    const res = await fetch(`https://api.github.com/repos/Mauricio1806/FIN-TRADER/contents/reports`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const files = await res.json();
+    const mds = files.filter(f => f.type==="file" && f.name.endsWith(".md"))
+                     .sort((a,b) => b.name.localeCompare(a.name));
+    if (!mds.length) throw new Error("Sem briefs");
+    const mdRes = await fetch(`https://raw.githubusercontent.com/Mauricio1806/FIN-TRADER/main/reports/${mds[0].name}`);
+    const md = await mdRes.text();
+    const html2 = marked.parse(md);
+    const tmp = document.createElement("div"); tmp.innerHTML = html2;
+    const rows = [];
+    tmp.querySelectorAll("table").forEach(t => {
+      const headers = Array.from(t.querySelectorAll("thead th, tr:first-child th"))
+        .map(th => th.textContent.trim().toLowerCase());
+      const iTicker = headers.findIndex(h => h.includes("ticker"));
+      const iScore = headers.findIndex(h => h === "score" || h.includes("score"));
+      const iName = headers.findIndex(h => h.includes("nome"));
+      if (iTicker === -1 || iScore === -1) return;
+      t.querySelectorAll("tbody tr").forEach(tr => {
+        const cells = Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim());
+        if (cells.length <= Math.max(iTicker, iScore)) return;
+        const score = parseFloat((cells[iScore]||"").replace(/[+\s]/g,"").replace(",","."));
+        if (!cells[iTicker] || isNaN(score)) return;
+        rows.push({ ticker: cells[iTicker], score, name: iName >= 0 ? cells[iName] : "" });
+      });
+    });
+    const map = new Map();
+    for (const r of rows) {
+      const cur = map.get(r.ticker);
+      if (!cur || Math.abs(r.score) > Math.abs(cur.score)) map.set(r.ticker, r);
+    }
+    saidaSignals = Array.from(map.values());
+    document.getElementById("saidaSignalStatus").textContent = `Brief: ${mds[0].name.replace(".md","")}`;
+    if (activeTab === "regras") renderRegras();
+    if (activeTab === "alertas") renderAlertas();
+  } catch(e) {
+    document.getElementById("saidaSignalStatus").textContent = "Erro ao carregar";
+    console.warn("saidaSignals:", e);
+  }
+}
+document.getElementById("saidaRefreshSignals").addEventListener("click", loadSaidaSignals);
+
+function renderAlertas() {
+  const el = document.getElementById("alertasList");
+  if (!regrasState.length) {
+    el.innerHTML = '<div class="text-sm text-neutral-500 text-center py-4">Cadastre regras de saída na aba anterior.</div>';
+    return;
+  }
+  const alertas = regrasState.map(r => {
+    const status = getStatusRegra(r);
+    const sig = saidaSignals.find(s => s.ticker === r.ticker || s.ticker === r.ticker.replace(".SA",""));
+    const cls = status.label.startsWith("SAIR") || status.label.startsWith("REVISAR") ? "danger"
+               : status.label.startsWith("WATCH") ? "warn" : "ok";
+    return `<div class="alerta-card ${cls}">
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+        <div class="flex items-center gap-2">
+          <span class="text-white font-bold">${escapeHtml(r.ticker)}</span>
+          <span class="pill ${status.cls}">${status.label}</span>
+        </div>
+        <span class="text-xs text-neutral-400">Stop gain: ${r.stopGain||"—"}% · Stop loss: ${r.stopLoss||"—"}%</span>
+      </div>
+      ${r.tese ? `<div class="text-xs text-neutral-400 mt-1"><b>Tese:</b> ${escapeHtml(r.tese)}</div>` : ""}
+      ${sig ? `<div class="text-xs text-neutral-500 mt-1">FIN-TRADER: score ${sig.score >= 0 ? "+" : ""}${sig.score.toFixed(2)} · ${sig.name}</div>` : '<div class="text-xs text-neutral-600 mt-1">Ativo não encontrado no último brief</div>'}
+    </div>`;
+  }).join("");
+  el.innerHTML = alertas;
+}
+
+// ---- TESOURO / MTM ----
+document.getElementById("calcMtmBtn").addEventListener("click", () => {
+  const taxaCompra = parseNumBR(document.getElementById("tesTotalCompra").value) / 100;
+  const taxaHoje = parseNumBR(document.getElementById("tesTaxaHoje").value) / 100;
+  const ipca = parseNumBR(document.getElementById("tesIpca").value) / 100;
+  const valor = parseNumBR(document.getElementById("tesValor").value);
+  const venc = document.getElementById("tesVencimento").value;
+  const compra = document.getElementById("tesDataCompra").value;
+  if (!taxaCompra || !taxaHoje || !valor || !venc || !compra) return alert("Preencha todos os campos.");
+  const hoje = new Date();
+  const dtCompra = new Date(compra + "T00:00:00");
+  const dtVenc = new Date(venc + "T00:00:00");
+  const diasTotal = (dtVenc - dtCompra) / 86400000;
+  const diasDecorridos = (hoje - dtCompra) / 86400000;
+  const diasRestantes = (dtVenc - hoje) / 86400000;
+  const pctDecorrido = diasDecorridos / diasTotal * 100;
+  // Valor corrigido pelo IPCA até hoje
+  const valorCorrigido = valor * (1 + ipca) * Math.pow(1 + taxaCompra, diasDecorridos / 365);
+  // Valor a mercado hoje (taxa de mercado atual descontando o futuro)
+  const valorFuturo = valor * (1 + ipca) * Math.pow(1 + taxaCompra, diasTotal / 365);
+  const valorMercado = valorFuturo / Math.pow(1 + taxaHoje, diasRestantes / 365);
+  const ganhoCapital = valorMercado - valor;
+  const pctGanho = (ganhoCapital / valor) * 100;
+  const diasTotaisHolding = diasDecorridos;
+  const aliquotaIr = diasTotaisHolding <= 180 ? 0.225 : diasTotaisHolding <= 360 ? 0.20 : diasTotaisHolding <= 720 ? 0.175 : 0.15;
+  const irBruto = Math.max(0, ganhoCapital * aliquotaIr);
+  const liquidoVendaHoje = valorMercado - irBruto;
+  const valorNoVencimento = valorFuturo;
+  const ganhoVencLiq = (valorFuturo - valor) * (1 - 0.15);
+  const verdict = taxaHoje < taxaCompra - 0.005
+    ? "✅ Juros caíram — você tem ganho de capital latente. Avalie vender se precisar do capital ou encontrou reinvestimento superior."
+    : taxaHoje > taxaCompra + 0.005
+    ? "❌ Juros subiram — vender agora seria com desconto. Aguardar o vencimento garante a taxa contratada."
+    : "⚠️ Juros praticamente estáveis — pouco benefício de vender agora. Reavalie em 3 meses.";
+  document.getElementById("mtmResult").innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+      <div class="metric"><div class="metric-value text-white">${fmtBRL(valorMercado)}</div><div class="metric-label">Valor mercado hoje</div></div>
+      <div class="metric"><div class="metric-value" style="color:${ganhoCapital>=0?'#86efac':'#fca5a5'}">${fmtBRL(liquidoVendaHoje)}</div><div class="metric-label">Líquido se vender hoje</div></div>
+      <div class="metric"><div class="metric-value text-blue-400">${fmtBRL(valorNoVencimento)}</div><div class="metric-label">Se segurar até venc.</div></div>
+      <div class="metric"><div class="metric-value text-yellow-400">${pctDecorrido.toFixed(1)}%</div><div class="metric-label">% prazo decorrido</div></div>
+    </div>
+    <div class="text-xs space-y-1 border-t border-[#1f1f1f] pt-3">
+      <div>Ganho bruto mercado: <b>${fmtBRL(ganhoCapital)}</b> (${pctGanho>=0?"+":""}${pctGanho.toFixed(2)}%) · IR estimado (${(aliquotaIr*100).toFixed(1)}%): <b>${fmtBRL(irBruto)}</b></div>
+      <div>Dias decorridos: ${Math.round(diasDecorridos)} · Restantes: ${Math.round(diasRestantes)}</div>
+      <div class="mt-2 p-2 bg-[#0a0a0a] rounded text-neutral-300">${verdict}</div>
+    </div>
+  `;
+  document.getElementById("mtmResult").classList.remove("hidden");
+});
+
+// ---- HOLD VS SELL ----
+document.getElementById("calcHvsBtn").addEventListener("click", () => {
+  const entrada = parseNumBR(document.getElementById("hvsEntrada").value);
+  const atual = parseNumBR(document.getElementById("hvsAtual").value);
+  const retHold = parseNumBR(document.getElementById("hvsRetornoHold").value) / 100;
+  const retNovo = parseNumBR(document.getElementById("hvsRetornoNovo").value) / 100;
+  const horizonte = parseNumBR(document.getElementById("hvsHorizonte").value) || 3;
+  const custoSaida = parseNumBR(document.getElementById("hvsCustoSaida").value) || 0;
+  const tipo = document.getElementById("hvsTipo").value;
+  const dtCompra = document.getElementById("hvsDataCompra").value;
+  if (!entrada || !atual || !retHold || !retNovo) return alert("Preencha os campos obrigatórios.");
+  const diasDecorridos = dtCompra ? (new Date() - new Date(dtCompra + "T00:00:00")) / 86400000 : 0;
+  const aliquota = tipo === "acao" ? 0.15
+    : diasDecorridos <= 180 ? 0.225 : diasDecorridos <= 360 ? 0.20
+    : diasDecorridos <= 720 ? 0.175 : 0.15;
+  const lucroAtual = Math.max(0, atual - entrada);
+  const ir = lucroAtual * aliquota;
+  const capitalLiquidoVenda = atual - ir - custoSaida;
+  const valorHoldFinal = atual * Math.pow(1 + retHold, horizonte);
+  const valorVendaFinal = capitalLiquidoVenda * Math.pow(1 + retNovo, horizonte);
+  const lucroFinalHold = (valorHoldFinal - entrada) * (1 - aliquota);
+  const lucroFinalVenda = (valorVendaFinal - entrada) * (1 - aliquota);
+  const diff = lucroFinalVenda - lucroFinalHold;
+  const verdict = diff > 0
+    ? `✅ <b>Vender e reinvestir</b> gera <b>${fmtBRL(diff)}</b> a mais no horizonte de ${horizonte}a.`
+    : `🔒 <b>Manter (hold)</b> gera <b>${fmtBRL(Math.abs(diff))}</b> a mais no horizonte de ${horizonte}a.`;
+  document.getElementById("hvsResult").innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+      <div class="metric"><div class="metric-value text-white">${fmtBRL(capitalLiquidoVenda)}</div><div class="metric-label">Capital líquido se vender</div></div>
+      <div class="metric"><div class="metric-value text-blue-400">${fmtBRL(valorHoldFinal)}</div><div class="metric-label">Hold em ${horizonte}a</div></div>
+      <div class="metric"><div class="metric-value text-green-400">${fmtBRL(valorVendaFinal)}</div><div class="metric-label">Vender+Reinvestir em ${horizonte}a</div></div>
+      <div class="metric"><div class="metric-value" style="color: ${diff>=0?'#86efac':'#93c5fd'}">${fmtBRL(Math.abs(diff))}</div><div class="metric-label">Diferença final</div></div>
+    </div>
+    <div class="text-xs border-t border-[#1f1f1f] pt-3">
+      <div>IR estimado na venda: <b>${fmtBRL(ir)}</b> (${(aliquota*100).toFixed(1)}% sobre lucro de ${fmtBRL(lucroAtual)})</div>
+      <div class="mt-2 p-2 bg-[#0a0a0a] rounded text-neutral-300">${verdict}</div>
+      <div class="mt-1 text-neutral-500">* Projeções simples sem inflação e sem tributação do reinvestimento. Use como referência comparativa, não como valor exato.</div>
+    </div>
+  `;
+  document.getElementById("hvsResult").classList.remove("hidden");
+});
+
+// ---- HISTÓRICO DE VENDAS ----
+const TIPO_IR = { acao: 0.15, etf_ext: 0.15, fundo: 0.15, tesouro: 0.15, cdb: 0.15 };
+const MOTIVO_LABELS = {
+  stop_gain: "Stop gain", stop_loss: "Stop loss", score_baixo: "Score baixo",
+  rebalanceamento: "Rebalanceamento", vencimento: "Vencimento", necessidade: "Liquidez",
+  mudanca_tese: "Mudança de tese", outro: "Outro"
+};
+function calcIrVenda(entrada, saida, tipo, dataCompra) {
+  const lucro = Math.max(0, saida - entrada);
+  const dias = dataCompra ? (new Date() - new Date(dataCompra + "T00:00:00")) / 86400000 : 0;
+  let aliq = TIPO_IR[tipo] || 0.15;
+  if (["cdb","tesouro"].includes(tipo)) {
+    aliq = dias <= 180 ? 0.225 : dias <= 360 ? 0.20 : dias <= 720 ? 0.175 : 0.15;
+  }
+  return { ir: lucro * aliq, aliq, lucro };
+}
+function renderHistorico() {
+  const body = document.getElementById("historicoBody");
+  const statsEl = document.getElementById("historicoStats");
+  if (!historicoState.length) {
+    body.innerHTML = '<tr><td colspan="9" class="text-center text-neutral-600 py-4">Nenhuma venda registrada.</td></tr>';
+    statsEl.classList.add("hidden");
+    return;
+  }
+  let totalPnlBruto = 0, totalIr = 0, wins = 0;
+  body.innerHTML = historicoState.map((v, idx) => {
+    const entrada = parseNumBR(v.entrada);
+    const saida = parseNumBR(v.saida);
+    const pnlBruto = saida - entrada;
+    const { ir, aliq } = calcIrVenda(entrada, saida, v.tipo, v.dataCompra);
+    const pnlLiq = pnlBruto - ir;
+    totalPnlBruto += pnlBruto; totalIr += ir;
+    if (pnlBruto > 0) wins++;
+    const pnlColor = pnlLiq >= 0 ? "#86efac" : "#fca5a5";
+    return `<tr>
+      <td class="text-white font-semibold">${escapeHtml(v.ticker)}</td>
+      <td class="text-xs text-neutral-400">${v.tipo}</td>
+      <td class="text-neutral-400">${v.dataCompra || "—"}</td>
+      <td class="text-neutral-400">${v.data || "—"}</td>
+      <td class="text-right" style="color:${pnlColor}">${fmtBRL(pnlBruto)}</td>
+      <td class="text-right text-red-400">-${fmtBRL(ir)}</td>
+      <td class="text-right font-bold" style="color:${pnlColor}">${fmtBRL(pnlLiq)}</td>
+      <td><span class="pill ${pnlLiq>=0?'pill-score-buy':'pill-score-avoid'}">${MOTIVO_LABELS[v.motivo]||v.motivo}</span></td>
+      <td class="text-right"><button class="danger text-xs" data-delvenda="${idx}">×</button></td>
+    </tr>`;
+  }).join("");
+  body.querySelectorAll("[data-delvenda]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (confirm("Remover registro?")) {
+        historicoState.splice(parseInt(btn.dataset.delvenda), 1);
+        saveSaida(); renderHistorico();
+      }
+    });
+  });
+  const totalLiq = totalPnlBruto - totalIr;
+  const hitRate = historicoState.length > 0 ? (wins / historicoState.length * 100) : 0;
+  statsEl.classList.remove("hidden");
+  statsEl.innerHTML = `
+    <div class="metric"><div class="metric-value" style="color:${totalPnlBruto>=0?'#86efac':'#fca5a5'}">${fmtBRL(totalPnlBruto)}</div><div class="metric-label">P&L Bruto Total</div></div>
+    <div class="metric"><div class="metric-value text-red-400">-${fmtBRL(totalIr)}</div><div class="metric-label">IR Estimado Total</div></div>
+    <div class="metric"><div class="metric-value" style="color:${totalLiq>=0?'#86efac':'#fca5a5'}">${fmtBRL(totalLiq)}</div><div class="metric-label">P&L Líquido Total</div></div>
+    <div class="metric"><div class="metric-value text-yellow-400">${hitRate.toFixed(0)}%</div><div class="metric-label">Hit Rate</div></div>
+  `;
+}
+document.getElementById("addVendaBtn").addEventListener("click", () => {
+  document.getElementById("vendaForm").classList.remove("hidden");
+  document.getElementById("vendaData").value = new Date().toISOString().slice(0,10);
+  document.getElementById("vendaTicker").focus();
+});
+document.getElementById("cancelVendaBtn").addEventListener("click", () => {
+  document.getElementById("vendaForm").classList.add("hidden");
+});
+document.getElementById("saveVendaBtn").addEventListener("click", () => {
+  const ticker = document.getElementById("vendaTicker").value.trim().toUpperCase();
+  const saida = parseNumBR(document.getElementById("vendaSaida").value);
+  const entrada = parseNumBR(document.getElementById("vendaEntrada").value);
+  if (!ticker || !saida || !entrada) return alert("Preencha ticker, valor entrada e valor saída.");
+  historicoState.unshift({
+    ticker,
+    tipo: document.getElementById("vendaTipo").value,
+    data: document.getElementById("vendaData").value,
+    dataCompra: document.getElementById("vendaDataCompra").value,
+    entrada: document.getElementById("vendaEntrada").value,
+    saida: document.getElementById("vendaSaida").value,
+    motivo: document.getElementById("vendaMotivo").value,
+    racional: document.getElementById("vendaRacional").value,
+  });
+  saveSaida(); renderHistorico();
+  document.getElementById("vendaForm").classList.add("hidden");
+  ["vendaTicker","vendaData","vendaDataCompra","vendaEntrada","vendaSaida","vendaRacional"]
+    .forEach(id => document.getElementById(id).value = "");
+});
+
+loadSaida();
+loadSaidaSignals();
+
+</script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   :root {
@@ -85,6 +452,19 @@
     th, td { padding: 0.375rem 0.5rem; }
     .nav-link { padding: 0.3rem 0.5rem; font-size: 0.72rem; }
   }
+
+  .saida-tab {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 0.4rem 0.85rem; font-size: 0.75rem; border-radius: 4px; cursor: pointer;
+    font-weight: 500; transition: all 0.15s ease; font-family: inherit; white-space: nowrap;
+  }
+  .saida-tab:hover { color: var(--text); background: #181818; }
+  .saida-tab.active { background: var(--accent-dim); border-color: var(--accent); color: white; }
+  .alerta-card { padding: 0.75rem; border-radius: 6px; border: 1px solid; }
+  .alerta-card.danger { border-color: #7f1d1d; background: rgba(127,29,29,0.12); }
+  .alerta-card.warn { border-color: #713f12; background: rgba(113,63,18,0.12); }
+  .alerta-card.ok { border-color: var(--accent-dim); background: rgba(22,101,52,0.12); }
+
 </style>
 </head>
 <body>
@@ -520,6 +900,314 @@
       <div id="evolucaoStats"></div>
     </div>
   </section>
+
+
+  <section class="card">
+    <div class="card-header flex items-center justify-between flex-wrap gap-2">
+      <h2>10. Gestão de Saída</h2>
+      <div class="flex items-center gap-2">
+        <span id="saidaSignalStatus" class="text-xs text-neutral-500">—</span>
+        <button id="saidaRefreshSignals" class="secondary text-xs">↻ Sinais</button>
+      </div>
+    </div>
+    <div class="card-body space-y-5">
+
+      <!-- Tabs principais -->
+      <div class="flex gap-1 flex-wrap border-b border-[#1f1f1f] pb-3">
+        <button class="saida-tab active" data-saida="regras">Regras de Saída</button>
+        <button class="saida-tab" data-saida="alertas">Alertas FIN-TRADER</button>
+        <button class="saida-tab" data-saida="tesouro">Tesouro / MtM</button>
+        <button class="saida-tab" data-saida="holdvsell">Hold vs Vender</button>
+        <button class="saida-tab" data-saida="historico">Histórico de Vendas</button>
+      </div>
+
+      <!-- ABA: REGRAS DE SAÍDA -->
+      <div id="saidaPanel_regras" class="saida-panel space-y-4">
+        <div class="text-xs text-neutral-400">
+          Define stop loss, stop gain e regra de score para cada posição.
+          O sistema verifica contra os sinais do FIN-TRADER e marca alertas automaticamente.
+        </div>
+        <div class="flex justify-end">
+          <button id="addRegraBtn">+ Adicionar regra</button>
+        </div>
+        <div id="regraForm" class="hidden bg-[#0d0d0d] border border-[#1f1f1f] rounded p-3 space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Ticker / Ativo</label>
+              <input type="text" id="regraTicker" placeholder="Ex: PETR4.SA, IVVB11" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Tipo</label>
+              <select id="regraTipo">
+                <option value="acao">Ação / ETF BR</option>
+                <option value="etf_ext">ETF Exterior</option>
+                <option value="fundo">Fundo</option>
+                <option value="tesouro">Tesouro</option>
+                <option value="cdb">CDB / RF</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Preço / Valor entrada (R$)</label>
+              <input type="text" inputmode="decimal" id="regraEntrada" placeholder="Ex: 38,50" />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Stop Loss (%)</label>
+              <input type="text" inputmode="decimal" id="regraStopLoss" placeholder="Ex: -15" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Stop Gain (%)</label>
+              <input type="text" inputmode="decimal" id="regraStopGain" placeholder="Ex: +30" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Score FIN-TRADER mínimo</label>
+              <input type="text" inputmode="decimal" id="regraScoreMin" placeholder="Ex: -0.1" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Prazo revisão</label>
+              <input type="date" id="regraPrazo" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Tese de saída (quando vender)</label>
+            <textarea id="regraTese" rows="2" placeholder="Ex: Vender se Selic subir acima de 15%, ou se score FIN-TRADER cair abaixo de -0.1 por 3 dias seguidos"></textarea>
+          </div>
+          <div class="flex gap-2 justify-end">
+            <button id="cancelRegraBtn" class="secondary">Cancelar</button>
+            <button id="saveRegraBtn">Salvar regra</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="regrasTable">
+            <thead>
+              <tr>
+                <th>Ativo</th><th>Entrada</th><th>Stop Loss</th><th>Stop Gain</th>
+                <th>Score mín.</th><th>Prazo</th><th>Status</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="regrasBody">
+              <tr><td colspan="8" class="text-center text-neutral-600 py-4">Nenhuma regra cadastrada.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ABA: ALERTAS FIN-TRADER -->
+      <div id="saidaPanel_alertas" class="saida-panel hidden space-y-3">
+        <div class="text-xs text-neutral-400">
+          Cruzamento automático entre suas regras de saída e o último brief do FIN-TRADER.
+          Ativos com score abaixo do mínimo configurado geram alerta de revisão.
+        </div>
+        <div id="alertasList" class="space-y-2">
+          <div class="text-sm text-neutral-500 text-center py-4">Clique em ↻ Sinais no topo pra carregar.</div>
+        </div>
+      </div>
+
+      <!-- ABA: TESOURO / MARCAÇÃO A MERCADO -->
+      <div id="saidaPanel_tesouro" class="saida-panel hidden space-y-4">
+        <div class="text-xs text-neutral-400">
+          Simulador de marcação a mercado para Tesouro IPCA+. Estima se vale vender antes do vencimento
+          capturando ganho de capital (queda de juros) ou se o prêmio até o vencimento compensa segurar.
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="bg-[#0d0d0d] border border-[#1f1f1f] rounded p-3 space-y-3">
+            <div class="text-xs text-neutral-300 font-semibold uppercase tracking-wider">Seu título</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Taxa de compra (% a.a.)</label>
+                <input type="text" inputmode="decimal" id="tesTotalCompra" placeholder="Ex: 7,25" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Vencimento</label>
+                <input type="date" id="tesVencimento" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Valor investido (R$)</label>
+                <input type="text" inputmode="decimal" id="tesValor" placeholder="Ex: 10000" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Data compra</label>
+                <input type="date" id="tesDataCompra" />
+              </div>
+            </div>
+          </div>
+          <div class="bg-[#0d0d0d] border border-[#1f1f1f] rounded p-3 space-y-3">
+            <div class="text-xs text-neutral-300 font-semibold uppercase tracking-wider">Cenário atual</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Taxa de mercado hoje (% a.a.)</label>
+                <input type="text" inputmode="decimal" id="tesTaxaHoje" placeholder="Ex: 6,80" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">IPCA acumulado (%)</label>
+                <input type="text" inputmode="decimal" id="tesIpca" placeholder="Ex: 4,72" />
+              </div>
+            </div>
+            <button id="calcMtmBtn" class="w-full">Calcular</button>
+          </div>
+        </div>
+        <div id="mtmResult" class="hidden bg-[#0d0d0d] border border-[#1f1f1f] rounded p-4 space-y-3"></div>
+        <div class="bg-[#0d0d0d] border border-[#1f1f1f] rounded p-3">
+          <div class="text-xs text-neutral-300 font-semibold uppercase tracking-wider mb-2">Guia: Quando faz sentido vender Tesouro IPCA+ antes do vencimento</div>
+          <div class="text-xs text-neutral-400 space-y-2">
+            <div>✅ <b>Vender faz sentido se:</b> juros caíram significativamente desde a compra (ganho de capital elevado) E você já atingiu ≥ 70% do prazo OU encontrou reinvestimento com taxa superior.</div>
+            <div>✅ <b>Vender faz sentido se:</b> mudança de vida (comprar imóvel, emigrar) e precisa do capital antes do vencimento.</div>
+            <div>❌ <b>Não vender se:</b> juros subiram — você estaria vendendo com desconto. Aguardar o vencimento garante a taxa contratada.</div>
+            <div>❌ <b>Não vender se:</b> IR ainda está em alíquota alta (até 180 dias = 22,5%, até 360 = 20%). Aguardar 720 dias = 15%.</div>
+            <div>⚠️ <b>Regra prática:</b> taxas IPCA+ acima de IPCA+6% são historicamente atrativas. Se você comprou acima disso e os juros caíram, você tem ganho de capital latente.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABA: HOLD VS VENDER -->
+      <div id="saidaPanel_holdvsell" class="saida-panel hidden space-y-4">
+        <div class="text-xs text-neutral-400">
+          Compara dois cenários: vender agora e reinvestir vs continuar segurando.
+          Útil pra fundos com carência, ações com stop gain ativado ou Tesouro com ganho de capital.
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="bg-[#0d0d0d] border border-[#1f1f1f] rounded p-3 space-y-3">
+            <div class="text-xs text-neutral-300 font-semibold uppercase tracking-wider">Posição atual</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Ticker / Nome</label>
+                <input type="text" id="hvsTicker" placeholder="Ex: REAL INVESTOR" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Valor de entrada (R$)</label>
+                <input type="text" inputmode="decimal" id="hvsEntrada" placeholder="Ex: 10000" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Valor atual (R$)</label>
+                <input type="text" inputmode="decimal" id="hvsAtual" placeholder="Ex: 13500" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Data compra</label>
+                <input type="date" id="hvsDataCompra" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Tipo (para IR)</label>
+                <select id="hvsTipo">
+                  <option value="acao">Ação / ETF BR</option>
+                  <option value="fundo">Fundo de ação</option>
+                  <option value="tesouro">Tesouro</option>
+                  <option value="cdb">CDB / RF</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Retorno esperado se segurar (% a.a.)</label>
+                <input type="text" inputmode="decimal" id="hvsRetornoHold" placeholder="Ex: 12" />
+              </div>
+            </div>
+          </div>
+          <div class="bg-[#0d0d0d] border border-[#1f1f1f] rounded p-3 space-y-3">
+            <div class="text-xs text-neutral-300 font-semibold uppercase tracking-wider">Se vender agora e reinvestir</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Retorno do novo ativo (% a.a.)</label>
+                <input type="text" inputmode="decimal" id="hvsRetornoNovo" placeholder="Ex: 14,25" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Horizonte comparação (anos)</label>
+                <input type="text" inputmode="decimal" id="hvsHorizonte" placeholder="Ex: 3" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-500 mb-1">Custo de saída / carência (R$)</label>
+                <input type="text" inputmode="decimal" id="hvsCustoSaida" placeholder="Ex: 0" />
+              </div>
+            </div>
+            <button id="calcHvsBtn" class="w-full">Comparar</button>
+          </div>
+        </div>
+        <div id="hvsResult" class="hidden bg-[#0d0d0d] border border-[#1f1f1f] rounded p-4 space-y-3"></div>
+      </div>
+
+      <!-- ABA: HISTÓRICO DE VENDAS -->
+      <div id="saidaPanel_historico" class="saida-panel hidden space-y-4">
+        <div class="text-xs text-neutral-400">
+          Registro de todas as vendas realizadas com P&L, racional e IR calculado.
+        </div>
+        <div class="flex justify-end">
+          <button id="addVendaBtn">+ Registrar venda</button>
+        </div>
+        <div id="vendaForm" class="hidden bg-[#0d0d0d] border border-[#1f1f1f] rounded p-3 space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Ticker / Ativo</label>
+              <input type="text" id="vendaTicker" placeholder="Ex: PETR4.SA" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Tipo</label>
+              <select id="vendaTipo">
+                <option value="acao">Ação / ETF BR</option>
+                <option value="etf_ext">ETF Exterior</option>
+                <option value="fundo">Fundo</option>
+                <option value="tesouro">Tesouro</option>
+                <option value="cdb">CDB / RF</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Data da venda</label>
+              <input type="date" id="vendaData" />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Valor entrada (R$)</label>
+              <input type="text" inputmode="decimal" id="vendaEntrada" placeholder="Ex: 10000" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Data compra</label>
+              <input type="date" id="vendaDataCompra" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Valor saída (R$)</label>
+              <input type="text" inputmode="decimal" id="vendaSaida" placeholder="Ex: 13500" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Motivo da saída</label>
+              <select id="vendaMotivo">
+                <option value="stop_gain">Stop gain atingido</option>
+                <option value="stop_loss">Stop loss atingido</option>
+                <option value="score_baixo">Score FIN-TRADER caiu</option>
+                <option value="rebalanceamento">Rebalanceamento</option>
+                <option value="vencimento">Vencimento (RF)</option>
+                <option value="necessidade">Necessidade de liquidez</option>
+                <option value="mudanca_tese">Mudança de tese</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Racional da saída</label>
+            <textarea id="vendaRacional" rows="2" placeholder="Ex: Score FIN-TRADER caiu para -0.25 por 5 dias. Selic subiu. Migrei para Tesouro IPCA+ 2035."></textarea>
+          </div>
+          <div class="flex gap-2 justify-end">
+            <button id="cancelVendaBtn" class="secondary">Cancelar</button>
+            <button id="saveVendaBtn">Registrar</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ativo</th><th>Tipo</th><th>Entrada</th><th>Saída</th>
+                <th class="text-right">P&L Bruto</th><th class="text-right">IR Est.</th>
+                <th class="text-right">P&L Líquido</th><th>Motivo</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="historicoBody">
+              <tr><td colspan="9" class="text-center text-neutral-600 py-4">Nenhuma venda registrada.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="historicoStats" class="hidden grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-[#1f1f1f] pt-3"></div>
+      </div>
+
+    </div>
+  </section>
+
 
   <div class="text-center text-xs text-neutral-600 py-4 space-y-1">
     <div>Dados da carteira salvos apenas no seu navegador (localStorage). Nada é enviado ao GitHub.</div>
