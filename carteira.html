@@ -5,750 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0a0a" />
 <title>FIN-TRADER — Carteira</title>
-<script src="https://cdn.tailwindcss.com">
-// ============ SEÇÃO 10: GESTÃO DE SAÍDA ============
-let regrasState = [];
-let historicoState = [];
-let saidaSignals = [];
-let activeTab = "regras";
-
-function loadSaida() {
-  try {
-    const r = localStorage.getItem("fin_trader_regras_v1");
-    if (r) regrasState = JSON.parse(r);
-    const h = localStorage.getItem("fin_trader_historico_v1");
-    if (h) historicoState = JSON.parse(h);
-  } catch(e) { console.warn("Load saida:", e); }
-}
-function saveSaida() {
-  try {
-    localStorage.setItem("fin_trader_regras_v1", JSON.stringify(regrasState));
-    localStorage.setItem("fin_trader_historico_v1", JSON.stringify(historicoState));
-  } catch(e) { console.warn("Save saida:", e); }
-}
-
-// ---- TABS ----
-document.querySelectorAll(".saida-tab").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".saida-tab").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".saida-panel").forEach(p => p.classList.add("hidden"));
-    btn.classList.add("active");
-    activeTab = btn.dataset.saida;
-    document.getElementById("saidaPanel_" + activeTab).classList.remove("hidden");
-    if (activeTab === "alertas") renderAlertas();
-    if (activeTab === "historico") renderHistorico();
-    if (activeTab === "regras") renderRegras();
-  });
-});
-
-// ---- REGRAS ----
-const IR_RATES = {
-  acao: 0.15, etf_ext: 0.15, fundo: 0.15, tesouro: 0.15, cdb: 0.15
-};
-function getStatusRegra(regra) {
-  const sig = saidaSignals.find(s => s.ticker === regra.ticker || s.ticker === regra.ticker.replace(".SA",""));
-  const hoje = new Date();
-  const prazo = regra.prazo ? new Date(regra.prazo + "T00:00:00") : null;
-  if (prazo && hoje > prazo) return { cls: "pill-score-avoid", label: "REVISAR — Prazo vencido" };
-  if (sig) {
-    if (sig.score < parseFloat(regra.scoreMin || "-0.4"))
-      return { cls: "pill-score-avoid", label: `SAIR — Score ${sig.score.toFixed(2)}` };
-    if (sig.score < 0)
-      return { cls: "pill-score-watch", label: `WATCH — Score ${sig.score.toFixed(2)}` };
-  }
-  return { cls: "pill-score-buy", label: sig ? `OK — Score ${sig.score.toFixed(2)}` : "OK — sem sinal" };
-}
-function renderRegras() {
-  const body = document.getElementById("regrasBody");
-  if (!regrasState.length) {
-    body.innerHTML = '<tr><td colspan="8" class="text-center text-neutral-600 py-4">Nenhuma regra cadastrada.</td></tr>';
-    return;
-  }
-  body.innerHTML = regrasState.map((r, idx) => {
-    const status = getStatusRegra(r);
-    return `<tr>
-      <td class="text-white font-semibold">${escapeHtml(r.ticker)}</td>
-      <td>${fmtBRL(parseNumBR(r.entrada))}</td>
-      <td class="text-red-400">${r.stopLoss || "—"}%</td>
-      <td class="text-green-400">${r.stopGain || "—"}%</td>
-      <td>${r.scoreMin || "—"}</td>
-      <td class="text-neutral-400">${r.prazo || "—"}</td>
-      <td><span class="pill ${status.cls}">${status.label}</span></td>
-      <td class="text-right"><button class="danger text-xs" data-delreg="${idx}">×</button></td>
-    </tr>`;
-  }).join("");
-  body.querySelectorAll("[data-delreg]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (confirm("Remover regra?")) {
-        regrasState.splice(parseInt(btn.dataset.delreg), 1);
-        saveSaida(); renderRegras(); renderAlertas();
-      }
-    });
-  });
-}
-document.getElementById("addRegraBtn").addEventListener("click", () => {
-  document.getElementById("regraForm").classList.remove("hidden");
-  document.getElementById("regraTicker").focus();
-});
-document.getElementById("cancelRegraBtn").addEventListener("click", () => {
-  document.getElementById("regraForm").classList.add("hidden");
-});
-document.getElementById("saveRegraBtn").addEventListener("click", () => {
-  const ticker = document.getElementById("regraTicker").value.trim().toUpperCase();
-  if (!ticker) return alert("Informe o ticker.");
-  regrasState.push({
-    ticker,
-    tipo: document.getElementById("regraTipo").value,
-    entrada: document.getElementById("regraEntrada").value,
-    stopLoss: document.getElementById("regraStopLoss").value,
-    stopGain: document.getElementById("regraStopGain").value,
-    scoreMin: document.getElementById("regraScoreMin").value,
-    prazo: document.getElementById("regraPrazo").value,
-    tese: document.getElementById("regraTese").value,
-  });
-  saveSaida(); renderRegras(); renderAlertas();
-  document.getElementById("regraForm").classList.add("hidden");
-  ["regraTicker","regraEntrada","regraStopLoss","regraStopGain","regraScoreMin","regraPrazo","regraTese"]
-    .forEach(id => document.getElementById(id).value = "");
-});
-
-// ---- ALERTAS FIN-TRADER ----
-async function loadSaidaSignals() {
-  document.getElementById("saidaSignalStatus").textContent = "Carregando…";
-  try {
-    const res = await fetch(`https://api.github.com/repos/Mauricio1806/FIN-TRADER/contents/reports`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const files = await res.json();
-    const mds = files.filter(f => f.type==="file" && f.name.endsWith(".md"))
-                     .sort((a,b) => b.name.localeCompare(a.name));
-    if (!mds.length) throw new Error("Sem briefs");
-    const mdRes = await fetch(`https://raw.githubusercontent.com/Mauricio1806/FIN-TRADER/main/reports/${mds[0].name}`);
-    const md = await mdRes.text();
-    const html2 = marked.parse(md);
-    const tmp = document.createElement("div"); tmp.innerHTML = html2;
-    const rows = [];
-    tmp.querySelectorAll("table").forEach(t => {
-      const headers = Array.from(t.querySelectorAll("thead th, tr:first-child th"))
-        .map(th => th.textContent.trim().toLowerCase());
-      const iTicker = headers.findIndex(h => h.includes("ticker"));
-      const iScore = headers.findIndex(h => h === "score" || h.includes("score"));
-      const iName = headers.findIndex(h => h.includes("nome"));
-      if (iTicker === -1 || iScore === -1) return;
-      t.querySelectorAll("tbody tr").forEach(tr => {
-        const cells = Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim());
-        if (cells.length <= Math.max(iTicker, iScore)) return;
-        const score = parseFloat((cells[iScore]||"").replace(/[+\s]/g,"").replace(",","."));
-        if (!cells[iTicker] || isNaN(score)) return;
-        rows.push({ ticker: cells[iTicker], score, name: iName >= 0 ? cells[iName] : "" });
-      });
-    });
-    const map = new Map();
-    for (const r of rows) {
-      const cur = map.get(r.ticker);
-      if (!cur || Math.abs(r.score) > Math.abs(cur.score)) map.set(r.ticker, r);
-    }
-    saidaSignals = Array.from(map.values());
-    document.getElementById("saidaSignalStatus").textContent = `Brief: ${mds[0].name.replace(".md","")}`;
-    if (activeTab === "regras") renderRegras();
-    if (activeTab === "alertas") renderAlertas();
-  } catch(e) {
-    document.getElementById("saidaSignalStatus").textContent = "Erro ao carregar";
-    console.warn("saidaSignals:", e);
-  }
-}
-document.getElementById("saidaRefreshSignals").addEventListener("click", loadSaidaSignals);
-
-function renderAlertas() {
-  const el = document.getElementById("alertasList");
-  if (!regrasState.length) {
-    el.innerHTML = '<div class="text-sm text-neutral-500 text-center py-4">Cadastre regras de saída na aba anterior.</div>';
-    return;
-  }
-  const alertas = regrasState.map(r => {
-    const status = getStatusRegra(r);
-    const sig = saidaSignals.find(s => s.ticker === r.ticker || s.ticker === r.ticker.replace(".SA",""));
-    const cls = status.label.startsWith("SAIR") || status.label.startsWith("REVISAR") ? "danger"
-               : status.label.startsWith("WATCH") ? "warn" : "ok";
-    return `<div class="alerta-card ${cls}">
-      <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-        <div class="flex items-center gap-2">
-          <span class="text-white font-bold">${escapeHtml(r.ticker)}</span>
-          <span class="pill ${status.cls}">${status.label}</span>
-        </div>
-        <span class="text-xs text-neutral-400">Stop gain: ${r.stopGain||"—"}% · Stop loss: ${r.stopLoss||"—"}%</span>
-      </div>
-      ${r.tese ? `<div class="text-xs text-neutral-400 mt-1"><b>Tese:</b> ${escapeHtml(r.tese)}</div>` : ""}
-      ${sig ? `<div class="text-xs text-neutral-500 mt-1">FIN-TRADER: score ${sig.score >= 0 ? "+" : ""}${sig.score.toFixed(2)} · ${sig.name}</div>` : '<div class="text-xs text-neutral-600 mt-1">Ativo não encontrado no último brief</div>'}
-    </div>`;
-  }).join("");
-  el.innerHTML = alertas;
-}
-
-// ---- TESOURO / MTM ----
-document.getElementById("calcMtmBtn").addEventListener("click", () => {
-  const taxaCompra = parseNumBR(document.getElementById("tesTotalCompra").value) / 100;
-  const taxaHoje = parseNumBR(document.getElementById("tesTaxaHoje").value) / 100;
-  const ipca = parseNumBR(document.getElementById("tesIpca").value) / 100;
-  const valor = parseNumBR(document.getElementById("tesValor").value);
-  const venc = document.getElementById("tesVencimento").value;
-  const compra = document.getElementById("tesDataCompra").value;
-  if (!taxaCompra || !taxaHoje || !valor || !venc || !compra) return alert("Preencha todos os campos.");
-  const hoje = new Date();
-  const dtCompra = new Date(compra + "T00:00:00");
-  const dtVenc = new Date(venc + "T00:00:00");
-  const diasTotal = (dtVenc - dtCompra) / 86400000;
-  const diasDecorridos = (hoje - dtCompra) / 86400000;
-  const diasRestantes = (dtVenc - hoje) / 86400000;
-  const pctDecorrido = diasDecorridos / diasTotal * 100;
-  // Valor corrigido pelo IPCA até hoje
-  const valorCorrigido = valor * (1 + ipca) * Math.pow(1 + taxaCompra, diasDecorridos / 365);
-  // Valor a mercado hoje (taxa de mercado atual descontando o futuro)
-  const valorFuturo = valor * (1 + ipca) * Math.pow(1 + taxaCompra, diasTotal / 365);
-  const valorMercado = valorFuturo / Math.pow(1 + taxaHoje, diasRestantes / 365);
-  const ganhoCapital = valorMercado - valor;
-  const pctGanho = (ganhoCapital / valor) * 100;
-  const diasTotaisHolding = diasDecorridos;
-  const aliquotaIr = diasTotaisHolding <= 180 ? 0.225 : diasTotaisHolding <= 360 ? 0.20 : diasTotaisHolding <= 720 ? 0.175 : 0.15;
-  const irBruto = Math.max(0, ganhoCapital * aliquotaIr);
-  const liquidoVendaHoje = valorMercado - irBruto;
-  const valorNoVencimento = valorFuturo;
-  const ganhoVencLiq = (valorFuturo - valor) * (1 - 0.15);
-  const verdict = taxaHoje < taxaCompra - 0.005
-    ? "✅ Juros caíram — você tem ganho de capital latente. Avalie vender se precisar do capital ou encontrou reinvestimento superior."
-    : taxaHoje > taxaCompra + 0.005
-    ? "❌ Juros subiram — vender agora seria com desconto. Aguardar o vencimento garante a taxa contratada."
-    : "⚠️ Juros praticamente estáveis — pouco benefício de vender agora. Reavalie em 3 meses.";
-  document.getElementById("mtmResult").innerHTML = `
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-      <div class="metric"><div class="metric-value text-white">${fmtBRL(valorMercado)}</div><div class="metric-label">Valor mercado hoje</div></div>
-      <div class="metric"><div class="metric-value" style="color:${ganhoCapital>=0?'#86efac':'#fca5a5'}">${fmtBRL(liquidoVendaHoje)}</div><div class="metric-label">Líquido se vender hoje</div></div>
-      <div class="metric"><div class="metric-value text-blue-400">${fmtBRL(valorNoVencimento)}</div><div class="metric-label">Se segurar até venc.</div></div>
-      <div class="metric"><div class="metric-value text-yellow-400">${pctDecorrido.toFixed(1)}%</div><div class="metric-label">% prazo decorrido</div></div>
-    </div>
-    <div class="text-xs space-y-1 border-t border-[#1f1f1f] pt-3">
-      <div>Ganho bruto mercado: <b>${fmtBRL(ganhoCapital)}</b> (${pctGanho>=0?"+":""}${pctGanho.toFixed(2)}%) · IR estimado (${(aliquotaIr*100).toFixed(1)}%): <b>${fmtBRL(irBruto)}</b></div>
-      <div>Dias decorridos: ${Math.round(diasDecorridos)} · Restantes: ${Math.round(diasRestantes)}</div>
-      <div class="mt-2 p-2 bg-[#0a0a0a] rounded text-neutral-300">${verdict}</div>
-    </div>
-  `;
-  document.getElementById("mtmResult").classList.remove("hidden");
-});
-
-// ---- HOLD VS SELL ----
-document.getElementById("calcHvsBtn").addEventListener("click", () => {
-  const entrada = parseNumBR(document.getElementById("hvsEntrada").value);
-  const atual = parseNumBR(document.getElementById("hvsAtual").value);
-  const retHold = parseNumBR(document.getElementById("hvsRetornoHold").value) / 100;
-  const retNovo = parseNumBR(document.getElementById("hvsRetornoNovo").value) / 100;
-  const horizonte = parseNumBR(document.getElementById("hvsHorizonte").value) || 3;
-  const custoSaida = parseNumBR(document.getElementById("hvsCustoSaida").value) || 0;
-  const tipo = document.getElementById("hvsTipo").value;
-  const dtCompra = document.getElementById("hvsDataCompra").value;
-  if (!entrada || !atual || !retHold || !retNovo) return alert("Preencha os campos obrigatórios.");
-  const diasDecorridos = dtCompra ? (new Date() - new Date(dtCompra + "T00:00:00")) / 86400000 : 0;
-  const aliquota = tipo === "acao" ? 0.15
-    : diasDecorridos <= 180 ? 0.225 : diasDecorridos <= 360 ? 0.20
-    : diasDecorridos <= 720 ? 0.175 : 0.15;
-  const lucroAtual = Math.max(0, atual - entrada);
-  const ir = lucroAtual * aliquota;
-  const capitalLiquidoVenda = atual - ir - custoSaida;
-  const valorHoldFinal = atual * Math.pow(1 + retHold, horizonte);
-  const valorVendaFinal = capitalLiquidoVenda * Math.pow(1 + retNovo, horizonte);
-  const lucroFinalHold = (valorHoldFinal - entrada) * (1 - aliquota);
-  const lucroFinalVenda = (valorVendaFinal - entrada) * (1 - aliquota);
-  const diff = lucroFinalVenda - lucroFinalHold;
-  const verdict = diff > 0
-    ? `✅ <b>Vender e reinvestir</b> gera <b>${fmtBRL(diff)}</b> a mais no horizonte de ${horizonte}a.`
-    : `🔒 <b>Manter (hold)</b> gera <b>${fmtBRL(Math.abs(diff))}</b> a mais no horizonte de ${horizonte}a.`;
-  document.getElementById("hvsResult").innerHTML = `
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-      <div class="metric"><div class="metric-value text-white">${fmtBRL(capitalLiquidoVenda)}</div><div class="metric-label">Capital líquido se vender</div></div>
-      <div class="metric"><div class="metric-value text-blue-400">${fmtBRL(valorHoldFinal)}</div><div class="metric-label">Hold em ${horizonte}a</div></div>
-      <div class="metric"><div class="metric-value text-green-400">${fmtBRL(valorVendaFinal)}</div><div class="metric-label">Vender+Reinvestir em ${horizonte}a</div></div>
-      <div class="metric"><div class="metric-value" style="color: ${diff>=0?'#86efac':'#93c5fd'}">${fmtBRL(Math.abs(diff))}</div><div class="metric-label">Diferença final</div></div>
-    </div>
-    <div class="text-xs border-t border-[#1f1f1f] pt-3">
-      <div>IR estimado na venda: <b>${fmtBRL(ir)}</b> (${(aliquota*100).toFixed(1)}% sobre lucro de ${fmtBRL(lucroAtual)})</div>
-      <div class="mt-2 p-2 bg-[#0a0a0a] rounded text-neutral-300">${verdict}</div>
-      <div class="mt-1 text-neutral-500">* Projeções simples sem inflação e sem tributação do reinvestimento. Use como referência comparativa, não como valor exato.</div>
-    </div>
-  `;
-  document.getElementById("hvsResult").classList.remove("hidden");
-});
-
-// ---- HISTÓRICO DE VENDAS ----
-const TIPO_IR = { acao: 0.15, etf_ext: 0.15, fundo: 0.15, tesouro: 0.15, cdb: 0.15 };
-const MOTIVO_LABELS = {
-  stop_gain: "Stop gain", stop_loss: "Stop loss", score_baixo: "Score baixo",
-  rebalanceamento: "Rebalanceamento", vencimento: "Vencimento", necessidade: "Liquidez",
-  mudanca_tese: "Mudança de tese", outro: "Outro"
-};
-function calcIrVenda(entrada, saida, tipo, dataCompra) {
-  const lucro = Math.max(0, saida - entrada);
-  const dias = dataCompra ? (new Date() - new Date(dataCompra + "T00:00:00")) / 86400000 : 0;
-  let aliq = TIPO_IR[tipo] || 0.15;
-  if (["cdb","tesouro"].includes(tipo)) {
-    aliq = dias <= 180 ? 0.225 : dias <= 360 ? 0.20 : dias <= 720 ? 0.175 : 0.15;
-  }
-  return { ir: lucro * aliq, aliq, lucro };
-}
-function renderHistorico() {
-  const body = document.getElementById("historicoBody");
-  const statsEl = document.getElementById("historicoStats");
-  if (!historicoState.length) {
-    body.innerHTML = '<tr><td colspan="9" class="text-center text-neutral-600 py-4">Nenhuma venda registrada.</td></tr>';
-    statsEl.classList.add("hidden");
-    return;
-  }
-  let totalPnlBruto = 0, totalIr = 0, wins = 0;
-  body.innerHTML = historicoState.map((v, idx) => {
-    const entrada = parseNumBR(v.entrada);
-    const saida = parseNumBR(v.saida);
-    const pnlBruto = saida - entrada;
-    const { ir, aliq } = calcIrVenda(entrada, saida, v.tipo, v.dataCompra);
-    const pnlLiq = pnlBruto - ir;
-    totalPnlBruto += pnlBruto; totalIr += ir;
-    if (pnlBruto > 0) wins++;
-    const pnlColor = pnlLiq >= 0 ? "#86efac" : "#fca5a5";
-    return `<tr>
-      <td class="text-white font-semibold">${escapeHtml(v.ticker)}</td>
-      <td class="text-xs text-neutral-400">${v.tipo}</td>
-      <td class="text-neutral-400">${v.dataCompra || "—"}</td>
-      <td class="text-neutral-400">${v.data || "—"}</td>
-      <td class="text-right" style="color:${pnlColor}">${fmtBRL(pnlBruto)}</td>
-      <td class="text-right text-red-400">-${fmtBRL(ir)}</td>
-      <td class="text-right font-bold" style="color:${pnlColor}">${fmtBRL(pnlLiq)}</td>
-      <td><span class="pill ${pnlLiq>=0?'pill-score-buy':'pill-score-avoid'}">${MOTIVO_LABELS[v.motivo]||v.motivo}</span></td>
-      <td class="text-right"><button class="danger text-xs" data-delvenda="${idx}">×</button></td>
-    </tr>`;
-  }).join("");
-  body.querySelectorAll("[data-delvenda]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (confirm("Remover registro?")) {
-        historicoState.splice(parseInt(btn.dataset.delvenda), 1);
-        saveSaida(); renderHistorico();
-      }
-    });
-  });
-  const totalLiq = totalPnlBruto - totalIr;
-  const hitRate = historicoState.length > 0 ? (wins / historicoState.length * 100) : 0;
-  statsEl.classList.remove("hidden");
-  statsEl.innerHTML = `
-    <div class="metric"><div class="metric-value" style="color:${totalPnlBruto>=0?'#86efac':'#fca5a5'}">${fmtBRL(totalPnlBruto)}</div><div class="metric-label">P&L Bruto Total</div></div>
-    <div class="metric"><div class="metric-value text-red-400">-${fmtBRL(totalIr)}</div><div class="metric-label">IR Estimado Total</div></div>
-    <div class="metric"><div class="metric-value" style="color:${totalLiq>=0?'#86efac':'#fca5a5'}">${fmtBRL(totalLiq)}</div><div class="metric-label">P&L Líquido Total</div></div>
-    <div class="metric"><div class="metric-value text-yellow-400">${hitRate.toFixed(0)}%</div><div class="metric-label">Hit Rate</div></div>
-  `;
-}
-document.getElementById("addVendaBtn").addEventListener("click", () => {
-  document.getElementById("vendaForm").classList.remove("hidden");
-  document.getElementById("vendaData").value = new Date().toISOString().slice(0,10);
-  document.getElementById("vendaTicker").focus();
-});
-document.getElementById("cancelVendaBtn").addEventListener("click", () => {
-  document.getElementById("vendaForm").classList.add("hidden");
-});
-document.getElementById("saveVendaBtn").addEventListener("click", () => {
-  const ticker = document.getElementById("vendaTicker").value.trim().toUpperCase();
-  const saida = parseNumBR(document.getElementById("vendaSaida").value);
-  const entrada = parseNumBR(document.getElementById("vendaEntrada").value);
-  if (!ticker || !saida || !entrada) return alert("Preencha ticker, valor entrada e valor saída.");
-  historicoState.unshift({
-    ticker,
-    tipo: document.getElementById("vendaTipo").value,
-    data: document.getElementById("vendaData").value,
-    dataCompra: document.getElementById("vendaDataCompra").value,
-    entrada: document.getElementById("vendaEntrada").value,
-    saida: document.getElementById("vendaSaida").value,
-    motivo: document.getElementById("vendaMotivo").value,
-    racional: document.getElementById("vendaRacional").value,
-  });
-  saveSaida(); renderHistorico();
-  document.getElementById("vendaForm").classList.add("hidden");
-  ["vendaTicker","vendaData","vendaDataCompra","vendaEntrada","vendaSaida","vendaRacional"]
-    .forEach(id => document.getElementById(id).value = "");
-});
-
-loadSaida();
-loadSaidaSignals();
-
-
-
-// ============ WISE RENDE+ ============
-// Lógica: saldo atual já inclui rendimentos acumulados.
-// O usuário atualiza o saldo quando quiser. Novos aportes se somam.
-
-const WISE_DEFAULT_COINS = [
-  { moeda: "USD", simbolo: "$",  saldoAtual: 102.91,  jaRendeu: 0.16, taxa: 3.39, rateBrl: 5.70, enabled: true },
-  { moeda: "EUR", simbolo: "€",  saldoAtual: 1014.21, jaRendeu: 0.97, taxa: 1.98, rateBrl: 6.30, enabled: true },
-];
-
-let wiseData = {
-  coins: JSON.parse(JSON.stringify(WISE_DEFAULT_COINS)),
-  aportes: [],
-  enabled: true,
-  usdBrl: 5.70,
-  eurBrl: 6.30,
-};
-
-function resetWiseToDefaults() {
-  localStorage.removeItem("fin_trader_wise_v1");
-  localStorage.removeItem("fin_trader_wise_v2");
-  wiseData = {
-    coins: JSON.parse(JSON.stringify(WISE_DEFAULT_COINS)),
-    aportes: [], enabled: true, usdBrl: 5.70, eurBrl: 6.30,
-  };
-  saveWise(); loadWise(); renderWise(); renderRenda();
-}
-
-function loadWise() {
-  // Limpar versão antiga se existir
-  localStorage.removeItem("fin_trader_wise_v1");
-  try {
-    const raw = localStorage.getItem("fin_trader_wise_v2");
-    if (raw) {
-      const d = JSON.parse(raw);
-      if (d.coins && Array.isArray(d.coins) && d.coins.length > 0) wiseData.coins = d.coins;
-      if (Array.isArray(d.aportes)) wiseData.aportes = d.aportes;
-      if (typeof d.enabled === "boolean") wiseData.enabled = d.enabled;
-      if (d.usdBrl) wiseData.usdBrl = d.usdBrl;
-      if (d.eurBrl) wiseData.eurBrl = d.eurBrl;
-    }
-  } catch(e) {
-    console.warn("Load wise erro, resetando para defaults:", e);
-    localStorage.removeItem("fin_trader_wise_v2");
-  }
-  // Se coins vazio ou inválido, usar defaults com valores reais
-  if (!wiseData.coins || !Array.isArray(wiseData.coins) || wiseData.coins.length === 0) {
-    wiseData.coins = JSON.parse(JSON.stringify(WISE_DEFAULT_COINS));
-    saveWise(); // Salva os defaults pra próxima vez
-  }
-  // Preencher inputs de cotação (só se os elementos existirem)
-  const usdEl = document.getElementById("wiseUsdBrl");
-  const eurEl = document.getElementById("wiseEurBrl");
-  const enEl  = document.getElementById("wiseEnabled");
-  if (usdEl) usdEl.value = fmtNumBR(wiseData.usdBrl, 4);
-  if (eurEl) eurEl.value = fmtNumBR(wiseData.eurBrl, 4);
-  if (enEl)  enEl.checked = wiseData.enabled;
-}
-
-function saveWise() {
-  wiseData.enabled = document.getElementById("wiseEnabled").checked;
-  wiseData.usdBrl = parseNumBR(document.getElementById("wiseUsdBrl").value) || 5.70;
-  wiseData.eurBrl = parseNumBR(document.getElementById("wiseEurBrl").value) || 6.30;
-  try {
-    localStorage.setItem("fin_trader_wise_v2", JSON.stringify(wiseData));
-  } catch(e) { console.warn("Save wise:", e); }
-}
-
-function getWiseRate(moeda) {
-  if (moeda === "USD") return wiseData.usdBrl;
-  if (moeda === "EUR") return wiseData.eurBrl;
-  // Outras moedas: usa rateBrl customizado da moeda
-  const c = wiseData.coins.find(x => x.moeda === moeda);
-  return c?.rateBrl || 6.0;
-}
-
-function getWiseTotalMensalLiq() {
-  if (!wiseData.enabled) return 0;
-  return wiseData.coins
-    .filter(c => c.enabled)
-    .reduce((s, c) => {
-      const rate = getWiseRate(c.moeda);
-      const rendaMensalNat = c.saldoAtual * c.taxa / 100 / 12;
-      return s + rendaMensalNat * rate;
-    }, 0);
-}
-
-function getWiseTotalBrl() {
-  if (!wiseData.enabled) return 0;
-  return wiseData.coins
-    .filter(c => c.enabled)
-    .reduce((s, c) => s + c.saldoAtual * getWiseRate(c.moeda), 0);
-}
-
-function renderWise() {
-  const container = document.getElementById("wiseCoinsContainer");
-  const resultEl = document.getElementById("wiseResult");
-  const aportesList = document.getElementById("wiseAportesList");
-  if (!container) return;
-  // Garantir que coins está populado antes de renderizar
-  if (!wiseData.coins || wiseData.coins.length === 0) {
-    wiseData.coins = JSON.parse(JSON.stringify(WISE_DEFAULT_COINS));
-  }
-
-  container.innerHTML = wiseData.coins.map((c, idx) => {
-    const rate = getWiseRate(c.moeda);
-    const saldoBrl = c.saldoAtual * rate;
-    const rendaMensalNat = c.saldoAtual * c.taxa / 100 / 12;
-    const rendaMensalBrl = rendaMensalNat * rate;
-    const rendaAnualLiqBrl = rendaMensalBrl * 12;
-    return `
-    <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-3">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class="text-base font-bold" style="color:#4ade80;">${c.moeda}</span>
-          <span class="text-xs text-neutral-500">Wise Rende+ · ${fmtNumBR(c.taxa, 2)}% a.a.</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <button class="secondary text-xs wise-remove" data-idx="${idx}" style="padding:0.2rem 0.5rem;${wiseData.coins.length <= 1 ? 'display:none' : ''}">×</button>
-          <label class="flex items-center gap-1 text-xs text-neutral-400 cursor-pointer">
-            <input type="checkbox" class="wise-coin-toggle" data-idx="${idx}" ${c.enabled ? "checked" : ""} style="width:14px;height:14px;">
-            Incluir
-          </label>
-        </div>
-      </div>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div>
-          <label class="block text-xs text-neutral-500 mb-1">Saldo atual (${c.moeda})</label>
-          <input type="text" inputmode="decimal" class="wise-saldo" data-idx="${idx}"
-            value="${fmtNumBR(c.saldoAtual, 2)}"
-            style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
-        </div>
-        <div>
-          <label class="block text-xs text-neutral-500 mb-1">Já rendeu (${c.moeda})</label>
-          <input type="text" inputmode="decimal" class="wise-jarendeu" data-idx="${idx}"
-            value="${fmtNumBR(c.jaRendeu || 0, 2)}"
-            style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
-        </div>
-        <div>
-          <label class="block text-xs text-neutral-500 mb-1">Taxa Rende+ (% a.a.)</label>
-          <input type="text" inputmode="decimal" class="wise-taxa" data-idx="${idx}"
-            value="${fmtNumBR(c.taxa, 2)}"
-            style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
-        </div>
-        <div>
-          <label class="block text-xs text-neutral-500 mb-1">Cotação BRL</label>
-          <input type="text" inputmode="decimal" class="wise-rate" data-idx="${idx}"
-            value="${fmtNumBR(rate, 4)}"
-            style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
-        </div>
-      </div>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center bg-[#0d0d0d] rounded p-2">
-        <div>
-          <div class="text-sm font-bold text-white">${c.simbolo || ""} ${fmtNumBR(c.saldoAtual, 2)}</div>
-          <div class="text-xs text-neutral-500">Saldo atual</div>
-        </div>
-        <div>
-          <div class="text-sm font-bold text-green-300">${c.simbolo || ""} ${fmtNumBR(c.jaRendeu || 0, 2)}</div>
-          <div class="text-xs text-neutral-500">Já rendeu (total)</div>
-        </div>
-        <div>
-          <div class="text-sm font-bold" style="color:#4ade80;">${c.simbolo || ""} ${fmtNumBR(rendaMensalNat, 2)}/mês</div>
-          <div class="text-xs text-neutral-500">Renda est. em ${c.moeda}</div>
-        </div>
-        <div>
-          <div class="text-sm font-bold text-blue-400">${fmtBRL(rendaMensalBrl)}/mês</div>
-          <div class="text-xs text-neutral-500">≈ BRL (a ${fmtNumBR(rate, 2)})</div>
-        </div>
-      </div>
-    </div>`;
-  }).join("");
-
-  // Listeners
-  container.querySelectorAll(".wise-saldo").forEach(inp => {
-    inp.addEventListener("change", () => {
-      const idx = parseInt(inp.dataset.idx);
-      wiseData.coins[idx].saldoAtual = parseNumBR(inp.value);
-      saveWise(); renderWise(); renderRenda();
-    });
-  });
-  container.querySelectorAll(".wise-jarendeu").forEach(inp => {
-    inp.addEventListener("change", () => {
-      const idx = parseInt(inp.dataset.idx);
-      wiseData.coins[idx].jaRendeu = parseNumBR(inp.value);
-      saveWise(); renderWise();
-    });
-  });
-  container.querySelectorAll(".wise-taxa").forEach(inp => {
-    inp.addEventListener("change", () => {
-      const idx = parseInt(inp.dataset.idx);
-      wiseData.coins[idx].taxa = parseNumBR(inp.value);
-      saveWise(); renderWise(); renderRenda();
-    });
-  });
-  container.querySelectorAll(".wise-rate").forEach(inp => {
-    inp.addEventListener("change", () => {
-      const idx = parseInt(inp.dataset.idx);
-      wiseData.coins[idx].rateBrl = parseNumBR(inp.value);
-      // Atualizar também o campo global se for USD ou EUR
-      if (wiseData.coins[idx].moeda === "USD") {
-        wiseData.usdBrl = parseNumBR(inp.value);
-        document.getElementById("wiseUsdBrl").value = inp.value;
-      }
-      if (wiseData.coins[idx].moeda === "EUR") {
-        wiseData.eurBrl = parseNumBR(inp.value);
-        document.getElementById("wiseEurBrl").value = inp.value;
-      }
-      saveWise(); renderWise(); renderRenda();
-    });
-  });
-  container.querySelectorAll(".wise-coin-toggle").forEach(chk => {
-    chk.addEventListener("change", () => {
-      const idx = parseInt(chk.dataset.idx);
-      wiseData.coins[idx].enabled = chk.checked;
-      saveWise(); renderWise(); renderRenda();
-    });
-  });
-  container.querySelectorAll(".wise-remove").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const idx = parseInt(btn.dataset.idx);
-      if (confirm(`Remover ${wiseData.coins[idx].moeda}?`)) {
-        wiseData.coins.splice(idx, 1);
-        saveWise(); renderWise(); renderRenda();
-      }
-    });
-  });
-
-  // Aportes planejados
-  if (aportesList) {
-    if (!wiseData.aportes.length) {
-      aportesList.innerHTML = '<div class="text-xs text-neutral-600">Nenhum aporte planejado.</div>';
-    } else {
-      aportesList.innerHTML = wiseData.aportes.map((a, idx) => {
-        const rate = getWiseRate(a.moeda);
-        const brl = parseNumBR(String(a.valor)) * rate;
-        return `<div class="flex items-center gap-3 bg-[#0a0a0a] rounded px-3 py-2 flex-wrap">
-          <span class="text-white font-semibold">${a.moeda} ${fmtNumBR(parseNumBR(String(a.valor)), 2)}</span>
-          <span class="text-xs text-neutral-400">≈ ${fmtBRL(brl)}</span>
-          <span class="text-xs text-neutral-500">${a.data ? "previsto " + a.data : ""}</span>
-          <span class="text-xs text-neutral-600 ml-auto italic">quando receber, atualize o saldo da moeda</span>
-          <button class="danger text-xs" data-del-aporte="${idx}" style="padding:0.15rem 0.4rem;">×</button>
-        </div>`;
-      }).join("");
-      aportesList.querySelectorAll("[data-del-aporte]").forEach(btn => {
-        btn.addEventListener("click", () => {
-          wiseData.aportes.splice(parseInt(btn.dataset.delAporte), 1);
-          saveWise(); renderWise();
-        });
-      });
-    }
-  }
-
-  // Totais
-  if (resultEl) {
-    const habilitadas = wiseData.coins.filter(c => c.enabled);
-    const totalBrl = habilitadas.reduce((s, c) => s + c.saldoAtual * getWiseRate(c.moeda), 0);
-    const totalJaRendeu = habilitadas.reduce((s, c) => s + (c.jaRendeu || 0) * getWiseRate(c.moeda), 0);
-    const totalMensalBrl = habilitadas.reduce((s, c) => {
-      return s + (c.saldoAtual * c.taxa / 100 / 12) * getWiseRate(c.moeda);
-    }, 0);
-    const totalAporteBrl = wiseData.aportes.reduce((s, a) => s + parseNumBR(String(a.valor)) * getWiseRate(a.moeda), 0);
-    const moedas = habilitadas.map(c => `${c.moeda}: ${c.simbolo || ""}${fmtNumBR(c.saldoAtual, 2)}`).join(" · ");
-    resultEl.innerHTML = `
-      <div class="text-xs text-neutral-500 mb-2">${moedas}</div>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-        <div class="metric"><div class="metric-value text-white">${fmtBRL(totalBrl)}</div><div class="metric-label">Total em BRL hoje</div></div>
-        <div class="metric"><div class="metric-value text-green-300">${fmtBRL(totalJaRendeu)}</div><div class="metric-label">Já rendeu (em BRL)</div></div>
-        <div class="metric"><div class="metric-value" style="color:#4ade80;">${fmtBRL(totalMensalBrl)}</div><div class="metric-label">Renda mensal BRL</div></div>
-        ${totalAporteBrl > 0 ? `<div class="metric"><div class="metric-value text-yellow-400">${fmtBRL(totalBrl + totalAporteBrl)}</div><div class="metric-label">Total c/ aportes</div></div>` : `<div class="metric"><div class="metric-value text-blue-400">${fmtBRL(totalMensalBrl * 12)}</div><div class="metric-label">Renda anual BRL</div></div>`}
-      </div>
-      <div class="text-xs text-neutral-600 mt-2">Wise Rende+ não tem IR sobre o rendimento em si (tributação do Reino Unido na fonte). IR BR incide sobre ganho cambial na conversão. Atualizar o "Saldo atual" sempre que houver novo extrato.</div>
-    `;
-  }
-  saveWise();
-}
-
-// Listeners globais Wise
-document.getElementById("wiseEnabled").addEventListener("change", () => { saveWise(); renderWise(); renderRenda(); });
-document.getElementById("wiseUsdBrl").addEventListener("change", () => {
-  wiseData.usdBrl = parseNumBR(document.getElementById("wiseUsdBrl").value) || 5.70;
-  // Atualizar o rateBrl do coin USD
-  const usdCoin = wiseData.coins.find(c => c.moeda === "USD");
-  if (usdCoin) usdCoin.rateBrl = wiseData.usdBrl;
-  saveWise(); renderWise(); renderRenda();
-});
-document.getElementById("wiseEurBrl").addEventListener("change", () => {
-  wiseData.eurBrl = parseNumBR(document.getElementById("wiseEurBrl").value) || 6.30;
-  const eurCoin = wiseData.coins.find(c => c.moeda === "EUR");
-  if (eurCoin) eurCoin.rateBrl = wiseData.eurBrl;
-  saveWise(); renderWise(); renderRenda();
-});
-
-// Atualizar cotação via API
-document.getElementById("wiseGetQuotes").addEventListener("click", async () => {
-  const btn = document.getElementById("wiseGetQuotes");
-  const status = document.getElementById("wiseQuoteStatus");
-  btn.textContent = "…"; btn.disabled = true;
-  try {
-    const r = await fetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.1/dados/ultimos/1?formato=json");
-    if (r.ok) {
-      const d = await r.json();
-      if (d[0]?.valor) {
-        const usd = parseFloat(d[0].valor.replace(",", "."));
-        wiseData.usdBrl = usd;
-        document.getElementById("wiseUsdBrl").value = fmtNumBR(usd, 4);
-        const usdCoin = wiseData.coins.find(c => c.moeda === "USD");
-        if (usdCoin) usdCoin.rateBrl = usd;
-      }
-    }
-    // EUR via Yahoo Finance
-    try {
-      const re = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/EURBRL=X?interval=1d&range=1d");
-      if (re.ok) {
-        const de = await re.json();
-        const eur = de.chart?.result?.[0]?.meta?.regularMarketPrice;
-        if (eur) {
-          wiseData.eurBrl = eur;
-          document.getElementById("wiseEurBrl").value = fmtNumBR(eur, 4);
-          const eurCoin = wiseData.coins.find(c => c.moeda === "EUR");
-          if (eurCoin) eurCoin.rateBrl = eur;
-        }
-      }
-    } catch(_) {}
-    if (status) status.textContent = `Atualizado ${new Date().toLocaleTimeString("pt-BR")}`;
-    saveWise(); renderWise(); renderRenda();
-  } catch(e) {
-    if (status) status.textContent = "Erro";
-    console.warn("Cotação:", e);
-  }
-  btn.textContent = "↻ Atualizar"; btn.disabled = false;
-});
-
-// Adicionar moeda nova
-document.getElementById("wiseAddCoin").addEventListener("click", () => {
-  document.getElementById("wiseAddCoinForm").classList.remove("hidden");
-});
-document.getElementById("wiseNewCancel").addEventListener("click", () => {
-  document.getElementById("wiseAddCoinForm").classList.add("hidden");
-});
-document.getElementById("wiseNewSave").addEventListener("click", () => {
-  const moeda = document.getElementById("wiseNewMoeda").value;
-  const rate = parseNumBR(document.getElementById("wiseNewRate").value) || 6.0;
-  if (wiseData.coins.find(c => c.moeda === moeda)) return alert(`${moeda} já existe.`);
-  wiseData.coins.push({ moeda, simbolo: "", saldoAtual: 0, jaRendeu: 0, taxa: 0, rateBrl: rate, enabled: true });
-  saveWise(); renderWise();
-  document.getElementById("wiseAddCoinForm").classList.add("hidden");
-});
-
-// Aportes planejados
-document.getElementById("wiseAddAporte").addEventListener("click", () => {
-  document.getElementById("wiseAporteForm").classList.remove("hidden");
-  document.getElementById("wiseAporteData").value = new Date(Date.now() + 7*86400000).toISOString().slice(0,10);
-});
-document.getElementById("wiseAporteCancel").addEventListener("click", () => {
-  document.getElementById("wiseAporteForm").classList.add("hidden");
-});
-document.getElementById("wiseAporteSave").addEventListener("click", () => {
-  const moeda = document.getElementById("wiseAporteMoeda").value;
-  const valor = document.getElementById("wiseAporteValor").value;
-  const data = document.getElementById("wiseAporteData").value;
-  if (!valor) return alert("Informe o valor.");
-  wiseData.aportes.push({ moeda, valor, data });
-  saveWise(); renderWise();
-  document.getElementById("wiseAporteForm").classList.add("hidden");
-  document.getElementById("wiseAporteValor").value = "";
-});
-
-// Inicializar Wise após DOM pronto
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => { loadWise(); renderWise(); });
-} else {
-  loadWise();
-  renderWise();
-}
-
-</script>
+<script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   :root {
@@ -3070,6 +2327,384 @@ if (ativoHistBuscarBtn) {
     }
   });
 }
+
+
+
+
+// ============ WISE RENDE+ ============
+// Lógica: saldo atual já inclui rendimentos acumulados.
+// O usuário atualiza o saldo quando quiser. Novos aportes se somam.
+
+const WISE_DEFAULT_COINS = [
+  { moeda: "USD", simbolo: "$",  saldoAtual: 102.91,  jaRendeu: 0.16, taxa: 3.39, rateBrl: 5.70, enabled: true },
+  { moeda: "EUR", simbolo: "€",  saldoAtual: 1014.21, jaRendeu: 0.97, taxa: 1.98, rateBrl: 6.30, enabled: true },
+];
+
+let wiseData = {
+  coins: JSON.parse(JSON.stringify(WISE_DEFAULT_COINS)),
+  aportes: [],
+  enabled: true,
+  usdBrl: 5.70,
+  eurBrl: 6.30,
+};
+
+function resetWiseToDefaults() {
+  localStorage.removeItem("fin_trader_wise_v1");
+  localStorage.removeItem("fin_trader_wise_v2");
+  wiseData = {
+    coins: JSON.parse(JSON.stringify(WISE_DEFAULT_COINS)),
+    aportes: [], enabled: true, usdBrl: 5.70, eurBrl: 6.30,
+  };
+  saveWise(); loadWise(); renderWise(); renderRenda();
+}
+
+function loadWise() {
+  // Limpar versão antiga se existir
+  localStorage.removeItem("fin_trader_wise_v1");
+  try {
+    const raw = localStorage.getItem("fin_trader_wise_v2");
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d.coins && Array.isArray(d.coins) && d.coins.length > 0) wiseData.coins = d.coins;
+      if (Array.isArray(d.aportes)) wiseData.aportes = d.aportes;
+      if (typeof d.enabled === "boolean") wiseData.enabled = d.enabled;
+      if (d.usdBrl) wiseData.usdBrl = d.usdBrl;
+      if (d.eurBrl) wiseData.eurBrl = d.eurBrl;
+    }
+  } catch(e) {
+    console.warn("Load wise erro, resetando para defaults:", e);
+    localStorage.removeItem("fin_trader_wise_v2");
+  }
+  // Se coins vazio ou inválido, usar defaults com valores reais
+  if (!wiseData.coins || !Array.isArray(wiseData.coins) || wiseData.coins.length === 0) {
+    wiseData.coins = JSON.parse(JSON.stringify(WISE_DEFAULT_COINS));
+    saveWise(); // Salva os defaults pra próxima vez
+  }
+  // Preencher inputs de cotação (só se os elementos existirem)
+  const usdEl = document.getElementById("wiseUsdBrl");
+  const eurEl = document.getElementById("wiseEurBrl");
+  const enEl  = document.getElementById("wiseEnabled");
+  if (usdEl) usdEl.value = fmtNumBR(wiseData.usdBrl, 4);
+  if (eurEl) eurEl.value = fmtNumBR(wiseData.eurBrl, 4);
+  if (enEl)  enEl.checked = wiseData.enabled;
+}
+
+function saveWise() {
+  wiseData.enabled = document.getElementById("wiseEnabled").checked;
+  wiseData.usdBrl = parseNumBR(document.getElementById("wiseUsdBrl").value) || 5.70;
+  wiseData.eurBrl = parseNumBR(document.getElementById("wiseEurBrl").value) || 6.30;
+  try {
+    localStorage.setItem("fin_trader_wise_v2", JSON.stringify(wiseData));
+  } catch(e) { console.warn("Save wise:", e); }
+}
+
+function getWiseRate(moeda) {
+  if (moeda === "USD") return wiseData.usdBrl;
+  if (moeda === "EUR") return wiseData.eurBrl;
+  // Outras moedas: usa rateBrl customizado da moeda
+  const c = wiseData.coins.find(x => x.moeda === moeda);
+  return c?.rateBrl || 6.0;
+}
+
+function getWiseTotalMensalLiq() {
+  if (!wiseData.enabled) return 0;
+  return wiseData.coins
+    .filter(c => c.enabled)
+    .reduce((s, c) => {
+      const rate = getWiseRate(c.moeda);
+      const rendaMensalNat = c.saldoAtual * c.taxa / 100 / 12;
+      return s + rendaMensalNat * rate;
+    }, 0);
+}
+
+function getWiseTotalBrl() {
+  if (!wiseData.enabled) return 0;
+  return wiseData.coins
+    .filter(c => c.enabled)
+    .reduce((s, c) => s + c.saldoAtual * getWiseRate(c.moeda), 0);
+}
+
+function renderWise() {
+  const container = document.getElementById("wiseCoinsContainer");
+  const resultEl = document.getElementById("wiseResult");
+  const aportesList = document.getElementById("wiseAportesList");
+  if (!container) return;
+  // Garantir que coins está populado antes de renderizar
+  if (!wiseData.coins || wiseData.coins.length === 0) {
+    wiseData.coins = JSON.parse(JSON.stringify(WISE_DEFAULT_COINS));
+  }
+
+  container.innerHTML = wiseData.coins.map((c, idx) => {
+    const rate = getWiseRate(c.moeda);
+    const saldoBrl = c.saldoAtual * rate;
+    const rendaMensalNat = c.saldoAtual * c.taxa / 100 / 12;
+    const rendaMensalBrl = rendaMensalNat * rate;
+    const rendaAnualLiqBrl = rendaMensalBrl * 12;
+    return `
+    <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-base font-bold" style="color:#4ade80;">${c.moeda}</span>
+          <span class="text-xs text-neutral-500">Wise Rende+ · ${fmtNumBR(c.taxa, 2)}% a.a.</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="secondary text-xs wise-remove" data-idx="${idx}" style="padding:0.2rem 0.5rem;${wiseData.coins.length <= 1 ? 'display:none' : ''}">×</button>
+          <label class="flex items-center gap-1 text-xs text-neutral-400 cursor-pointer">
+            <input type="checkbox" class="wise-coin-toggle" data-idx="${idx}" ${c.enabled ? "checked" : ""} style="width:14px;height:14px;">
+            Incluir
+          </label>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Saldo atual (${c.moeda})</label>
+          <input type="text" inputmode="decimal" class="wise-saldo" data-idx="${idx}"
+            value="${fmtNumBR(c.saldoAtual, 2)}"
+            style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
+        </div>
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Já rendeu (${c.moeda})</label>
+          <input type="text" inputmode="decimal" class="wise-jarendeu" data-idx="${idx}"
+            value="${fmtNumBR(c.jaRendeu || 0, 2)}"
+            style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
+        </div>
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Taxa Rende+ (% a.a.)</label>
+          <input type="text" inputmode="decimal" class="wise-taxa" data-idx="${idx}"
+            value="${fmtNumBR(c.taxa, 2)}"
+            style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
+        </div>
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Cotação BRL</label>
+          <input type="text" inputmode="decimal" class="wise-rate" data-idx="${idx}"
+            value="${fmtNumBR(rate, 4)}"
+            style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center bg-[#0d0d0d] rounded p-2">
+        <div>
+          <div class="text-sm font-bold text-white">${c.simbolo || ""} ${fmtNumBR(c.saldoAtual, 2)}</div>
+          <div class="text-xs text-neutral-500">Saldo atual</div>
+        </div>
+        <div>
+          <div class="text-sm font-bold text-green-300">${c.simbolo || ""} ${fmtNumBR(c.jaRendeu || 0, 2)}</div>
+          <div class="text-xs text-neutral-500">Já rendeu (total)</div>
+        </div>
+        <div>
+          <div class="text-sm font-bold" style="color:#4ade80;">${c.simbolo || ""} ${fmtNumBR(rendaMensalNat, 2)}/mês</div>
+          <div class="text-xs text-neutral-500">Renda est. em ${c.moeda}</div>
+        </div>
+        <div>
+          <div class="text-sm font-bold text-blue-400">${fmtBRL(rendaMensalBrl)}/mês</div>
+          <div class="text-xs text-neutral-500">≈ BRL (a ${fmtNumBR(rate, 2)})</div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // Listeners
+  container.querySelectorAll(".wise-saldo").forEach(inp => {
+    inp.addEventListener("change", () => {
+      const idx = parseInt(inp.dataset.idx);
+      wiseData.coins[idx].saldoAtual = parseNumBR(inp.value);
+      saveWise(); renderWise(); renderRenda();
+    });
+  });
+  container.querySelectorAll(".wise-jarendeu").forEach(inp => {
+    inp.addEventListener("change", () => {
+      const idx = parseInt(inp.dataset.idx);
+      wiseData.coins[idx].jaRendeu = parseNumBR(inp.value);
+      saveWise(); renderWise();
+    });
+  });
+  container.querySelectorAll(".wise-taxa").forEach(inp => {
+    inp.addEventListener("change", () => {
+      const idx = parseInt(inp.dataset.idx);
+      wiseData.coins[idx].taxa = parseNumBR(inp.value);
+      saveWise(); renderWise(); renderRenda();
+    });
+  });
+  container.querySelectorAll(".wise-rate").forEach(inp => {
+    inp.addEventListener("change", () => {
+      const idx = parseInt(inp.dataset.idx);
+      wiseData.coins[idx].rateBrl = parseNumBR(inp.value);
+      // Atualizar também o campo global se for USD ou EUR
+      if (wiseData.coins[idx].moeda === "USD") {
+        wiseData.usdBrl = parseNumBR(inp.value);
+        document.getElementById("wiseUsdBrl").value = inp.value;
+      }
+      if (wiseData.coins[idx].moeda === "EUR") {
+        wiseData.eurBrl = parseNumBR(inp.value);
+        document.getElementById("wiseEurBrl").value = inp.value;
+      }
+      saveWise(); renderWise(); renderRenda();
+    });
+  });
+  container.querySelectorAll(".wise-coin-toggle").forEach(chk => {
+    chk.addEventListener("change", () => {
+      const idx = parseInt(chk.dataset.idx);
+      wiseData.coins[idx].enabled = chk.checked;
+      saveWise(); renderWise(); renderRenda();
+    });
+  });
+  container.querySelectorAll(".wise-remove").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.idx);
+      if (confirm(`Remover ${wiseData.coins[idx].moeda}?`)) {
+        wiseData.coins.splice(idx, 1);
+        saveWise(); renderWise(); renderRenda();
+      }
+    });
+  });
+
+  // Aportes planejados
+  if (aportesList) {
+    if (!wiseData.aportes.length) {
+      aportesList.innerHTML = '<div class="text-xs text-neutral-600">Nenhum aporte planejado.</div>';
+    } else {
+      aportesList.innerHTML = wiseData.aportes.map((a, idx) => {
+        const rate = getWiseRate(a.moeda);
+        const brl = parseNumBR(String(a.valor)) * rate;
+        return `<div class="flex items-center gap-3 bg-[#0a0a0a] rounded px-3 py-2 flex-wrap">
+          <span class="text-white font-semibold">${a.moeda} ${fmtNumBR(parseNumBR(String(a.valor)), 2)}</span>
+          <span class="text-xs text-neutral-400">≈ ${fmtBRL(brl)}</span>
+          <span class="text-xs text-neutral-500">${a.data ? "previsto " + a.data : ""}</span>
+          <span class="text-xs text-neutral-600 ml-auto italic">quando receber, atualize o saldo da moeda</span>
+          <button class="danger text-xs" data-del-aporte="${idx}" style="padding:0.15rem 0.4rem;">×</button>
+        </div>`;
+      }).join("");
+      aportesList.querySelectorAll("[data-del-aporte]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          wiseData.aportes.splice(parseInt(btn.dataset.delAporte), 1);
+          saveWise(); renderWise();
+        });
+      });
+    }
+  }
+
+  // Totais
+  if (resultEl) {
+    const habilitadas = wiseData.coins.filter(c => c.enabled);
+    const totalBrl = habilitadas.reduce((s, c) => s + c.saldoAtual * getWiseRate(c.moeda), 0);
+    const totalJaRendeu = habilitadas.reduce((s, c) => s + (c.jaRendeu || 0) * getWiseRate(c.moeda), 0);
+    const totalMensalBrl = habilitadas.reduce((s, c) => {
+      return s + (c.saldoAtual * c.taxa / 100 / 12) * getWiseRate(c.moeda);
+    }, 0);
+    const totalAporteBrl = wiseData.aportes.reduce((s, a) => s + parseNumBR(String(a.valor)) * getWiseRate(a.moeda), 0);
+    const moedas = habilitadas.map(c => `${c.moeda}: ${c.simbolo || ""}${fmtNumBR(c.saldoAtual, 2)}`).join(" · ");
+    resultEl.innerHTML = `
+      <div class="text-xs text-neutral-500 mb-2">${moedas}</div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+        <div class="metric"><div class="metric-value text-white">${fmtBRL(totalBrl)}</div><div class="metric-label">Total em BRL hoje</div></div>
+        <div class="metric"><div class="metric-value text-green-300">${fmtBRL(totalJaRendeu)}</div><div class="metric-label">Já rendeu (em BRL)</div></div>
+        <div class="metric"><div class="metric-value" style="color:#4ade80;">${fmtBRL(totalMensalBrl)}</div><div class="metric-label">Renda mensal BRL</div></div>
+        ${totalAporteBrl > 0 ? `<div class="metric"><div class="metric-value text-yellow-400">${fmtBRL(totalBrl + totalAporteBrl)}</div><div class="metric-label">Total c/ aportes</div></div>` : `<div class="metric"><div class="metric-value text-blue-400">${fmtBRL(totalMensalBrl * 12)}</div><div class="metric-label">Renda anual BRL</div></div>`}
+      </div>
+      <div class="text-xs text-neutral-600 mt-2">Wise Rende+ não tem IR sobre o rendimento em si (tributação do Reino Unido na fonte). IR BR incide sobre ganho cambial na conversão. Atualizar o "Saldo atual" sempre que houver novo extrato.</div>
+    `;
+  }
+  saveWise();
+}
+
+// Listeners globais Wise
+document.getElementById("wiseEnabled").addEventListener("change", () => { saveWise(); renderWise(); renderRenda(); });
+document.getElementById("wiseUsdBrl").addEventListener("change", () => {
+  wiseData.usdBrl = parseNumBR(document.getElementById("wiseUsdBrl").value) || 5.70;
+  // Atualizar o rateBrl do coin USD
+  const usdCoin = wiseData.coins.find(c => c.moeda === "USD");
+  if (usdCoin) usdCoin.rateBrl = wiseData.usdBrl;
+  saveWise(); renderWise(); renderRenda();
+});
+document.getElementById("wiseEurBrl").addEventListener("change", () => {
+  wiseData.eurBrl = parseNumBR(document.getElementById("wiseEurBrl").value) || 6.30;
+  const eurCoin = wiseData.coins.find(c => c.moeda === "EUR");
+  if (eurCoin) eurCoin.rateBrl = wiseData.eurBrl;
+  saveWise(); renderWise(); renderRenda();
+});
+
+// Atualizar cotação via API
+document.getElementById("wiseGetQuotes").addEventListener("click", async () => {
+  const btn = document.getElementById("wiseGetQuotes");
+  const status = document.getElementById("wiseQuoteStatus");
+  btn.textContent = "…"; btn.disabled = true;
+  try {
+    const r = await fetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.1/dados/ultimos/1?formato=json");
+    if (r.ok) {
+      const d = await r.json();
+      if (d[0]?.valor) {
+        const usd = parseFloat(d[0].valor.replace(",", "."));
+        wiseData.usdBrl = usd;
+        document.getElementById("wiseUsdBrl").value = fmtNumBR(usd, 4);
+        const usdCoin = wiseData.coins.find(c => c.moeda === "USD");
+        if (usdCoin) usdCoin.rateBrl = usd;
+      }
+    }
+    // EUR via Yahoo Finance
+    try {
+      const re = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/EURBRL=X?interval=1d&range=1d");
+      if (re.ok) {
+        const de = await re.json();
+        const eur = de.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (eur) {
+          wiseData.eurBrl = eur;
+          document.getElementById("wiseEurBrl").value = fmtNumBR(eur, 4);
+          const eurCoin = wiseData.coins.find(c => c.moeda === "EUR");
+          if (eurCoin) eurCoin.rateBrl = eur;
+        }
+      }
+    } catch(_) {}
+    if (status) status.textContent = `Atualizado ${new Date().toLocaleTimeString("pt-BR")}`;
+    saveWise(); renderWise(); renderRenda();
+  } catch(e) {
+    if (status) status.textContent = "Erro";
+    console.warn("Cotação:", e);
+  }
+  btn.textContent = "↻ Atualizar"; btn.disabled = false;
+});
+
+// Adicionar moeda nova
+document.getElementById("wiseAddCoin").addEventListener("click", () => {
+  document.getElementById("wiseAddCoinForm").classList.remove("hidden");
+});
+document.getElementById("wiseNewCancel").addEventListener("click", () => {
+  document.getElementById("wiseAddCoinForm").classList.add("hidden");
+});
+document.getElementById("wiseNewSave").addEventListener("click", () => {
+  const moeda = document.getElementById("wiseNewMoeda").value;
+  const rate = parseNumBR(document.getElementById("wiseNewRate").value) || 6.0;
+  if (wiseData.coins.find(c => c.moeda === moeda)) return alert(`${moeda} já existe.`);
+  wiseData.coins.push({ moeda, simbolo: "", saldoAtual: 0, jaRendeu: 0, taxa: 0, rateBrl: rate, enabled: true });
+  saveWise(); renderWise();
+  document.getElementById("wiseAddCoinForm").classList.add("hidden");
+});
+
+// Aportes planejados
+document.getElementById("wiseAddAporte").addEventListener("click", () => {
+  document.getElementById("wiseAporteForm").classList.remove("hidden");
+  document.getElementById("wiseAporteData").value = new Date(Date.now() + 7*86400000).toISOString().slice(0,10);
+});
+document.getElementById("wiseAporteCancel").addEventListener("click", () => {
+  document.getElementById("wiseAporteForm").classList.add("hidden");
+});
+document.getElementById("wiseAporteSave").addEventListener("click", () => {
+  const moeda = document.getElementById("wiseAporteMoeda").value;
+  const valor = document.getElementById("wiseAporteValor").value;
+  const data = document.getElementById("wiseAporteData").value;
+  if (!valor) return alert("Informe o valor.");
+  wiseData.aportes.push({ moeda, valor, data });
+  saveWise(); renderWise();
+  document.getElementById("wiseAporteForm").classList.add("hidden");
+  document.getElementById("wiseAporteValor").value = "";
+});
+
+// Inicializar Wise após DOM pronto
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => { loadWise(); renderWise(); });
+} else {
+  loadWise();
+  renderWise();
+}
+
 
 </script>
 
