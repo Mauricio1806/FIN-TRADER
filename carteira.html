@@ -373,201 +373,321 @@ loadSaida();
 loadSaidaSignals();
 
 
+
 // ============ WISE RENDE+ ============
-const WISE_COINS_DEFAULT = [
-  { moeda: "USD", simbolo: "$", valor: 102.91, taxa: 3.39, enabled: true },
-  { moeda: "EUR", simbolo: "€", valor: 1014.21, taxa: 1.98, enabled: true },
+// Lógica: saldo atual já inclui rendimentos acumulados.
+// O usuário atualiza o saldo quando quiser. Novos aportes se somam.
+
+const WISE_DEFAULT_COINS = [
+  { moeda: "USD", simbolo: "$",  saldoAtual: 102.91,  jaRendeu: 0,    taxa: 3.39, rateBrl: 5.70, enabled: true },
+  { moeda: "EUR", simbolo: "€",  saldoAtual: 1014.21, jaRendeu: 0,    taxa: 1.98, rateBrl: 6.30, enabled: true },
 ];
-let wiseCoins = JSON.parse(JSON.stringify(WISE_COINS_DEFAULT));
-let wiseAportes = [];
-let wiseEnabled = true;
+
+let wiseData = {
+  coins: JSON.parse(JSON.stringify(WISE_DEFAULT_COINS)),
+  aportes: [],
+  enabled: true,
+  usdBrl: 5.70,
+  eurBrl: 6.30,
+};
 
 function loadWise() {
   try {
-    const w = localStorage.getItem("fin_trader_wise_v1");
-    if (w) {
-      const d = JSON.parse(w);
-      if (d.coins) wiseCoins = d.coins;
-      if (d.aportes) wiseAportes = d.aportes;
-      if (typeof d.enabled === "boolean") wiseEnabled = d.enabled;
-      if (d.usdBrl) document.getElementById("wiseUsdBrl").value = fmtNumBR(d.usdBrl, 2);
-      if (d.eurBrl) document.getElementById("wiseEurBrl").value = fmtNumBR(d.eurBrl, 2);
+    const raw = localStorage.getItem("fin_trader_wise_v2");
+    if (raw) {
+      const d = JSON.parse(raw);
+      Object.assign(wiseData, d);
     }
-    document.getElementById("wiseEnabled").checked = wiseEnabled;
   } catch(e) { console.warn("Load wise:", e); }
+  // Preencher inputs de cotação
+  document.getElementById("wiseUsdBrl").value = fmtNumBR(wiseData.usdBrl, 4);
+  document.getElementById("wiseEurBrl").value = fmtNumBR(wiseData.eurBrl, 4);
+  document.getElementById("wiseEnabled").checked = wiseData.enabled;
 }
+
 function saveWise() {
+  wiseData.enabled = document.getElementById("wiseEnabled").checked;
+  wiseData.usdBrl = parseNumBR(document.getElementById("wiseUsdBrl").value) || 5.70;
+  wiseData.eurBrl = parseNumBR(document.getElementById("wiseEurBrl").value) || 6.30;
   try {
-    localStorage.setItem("fin_trader_wise_v1", JSON.stringify({
-      coins: wiseCoins,
-      aportes: wiseAportes,
-      enabled: document.getElementById("wiseEnabled").checked,
-      usdBrl: parseNumBR(document.getElementById("wiseUsdBrl").value),
-      eurBrl: parseNumBR(document.getElementById("wiseEurBrl").value),
-    }));
+    localStorage.setItem("fin_trader_wise_v2", JSON.stringify(wiseData));
   } catch(e) { console.warn("Save wise:", e); }
 }
 
-function getWiseRateBrl(moeda) {
-  const usd = parseNumBR(document.getElementById("wiseUsdBrl").value) || 5.70;
-  const eur = parseNumBR(document.getElementById("wiseEurBrl").value) || 6.30;
-  if (moeda === "USD") return usd;
-  if (moeda === "EUR") return eur;
-  return 6.0; // GBP fallback
+function getWiseRate(moeda) {
+  if (moeda === "USD") return wiseData.usdBrl;
+  if (moeda === "EUR") return wiseData.eurBrl;
+  // Outras moedas: usa rateBrl customizado da moeda
+  const c = wiseData.coins.find(x => x.moeda === moeda);
+  return c?.rateBrl || 6.0;
+}
+
+function getWiseTotalMensalLiq() {
+  if (!wiseData.enabled) return 0;
+  return wiseData.coins
+    .filter(c => c.enabled)
+    .reduce((s, c) => {
+      const rate = getWiseRate(c.moeda);
+      const rendaMensalNat = c.saldoAtual * c.taxa / 100 / 12;
+      return s + rendaMensalNat * rate;
+    }, 0);
+}
+
+function getWiseTotalBrl() {
+  if (!wiseData.enabled) return 0;
+  return wiseData.coins
+    .filter(c => c.enabled)
+    .reduce((s, c) => s + c.saldoAtual * getWiseRate(c.moeda), 0);
 }
 
 function renderWise() {
-  const container = document.getElementById("wiseCoins");
+  const container = document.getElementById("wiseCoinsContainer");
   const resultEl = document.getElementById("wiseResult");
   const aportesList = document.getElementById("wiseAportesList");
-  if (!container || !resultEl) return;
+  if (!container) return;
 
-  let totalBrl = 0, totalRendaMensalBrl = 0;
-  container.innerHTML = wiseCoins.map((c, idx) => {
-    const rate = getWiseRateBrl(c.moeda);
-    const valorBrl = c.valor * rate;
-    const rendaAnualNat = c.valor * c.taxa / 100;
-    const rendaMensalNat = rendaAnualNat / 12;
+  container.innerHTML = wiseData.coins.map((c, idx) => {
+    const rate = getWiseRate(c.moeda);
+    const saldoBrl = c.saldoAtual * rate;
+    const rendaMensalNat = c.saldoAtual * c.taxa / 100 / 12;
     const rendaMensalBrl = rendaMensalNat * rate;
-    totalBrl += valorBrl;
-    totalRendaMensalBrl += rendaMensalBrl;
+    const rendaAnualLiqBrl = rendaMensalBrl * 12;
     return `
-      <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-2">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="text-lg font-bold" style="color:#4ade80;">${c.moeda}</span>
-            <span class="text-xs text-neutral-500">Wise Rende+ · taxa variável</span>
-          </div>
-          <label class="flex items-center gap-1 text-xs text-neutral-500 cursor-pointer">
-            <input type="checkbox" data-wise-idx="${idx}" class="wise-coin-toggle" ${c.enabled ? "checked" : ""} style="width:14px;height:14px;">
+    <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-base font-bold" style="color:#4ade80;">${c.moeda}</span>
+          <span class="text-xs text-neutral-500">Wise Rende+ · ${fmtNumBR(c.taxa, 2)}% a.a.</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="secondary text-xs wise-remove" data-idx="${idx}" style="padding:0.2rem 0.5rem;${wiseData.coins.length <= 1 ? 'display:none' : ''}">×</button>
+          <label class="flex items-center gap-1 text-xs text-neutral-400 cursor-pointer">
+            <input type="checkbox" class="wise-coin-toggle" data-idx="${idx}" ${c.enabled ? "checked" : ""} style="width:14px;height:14px;">
             Incluir
           </label>
         </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block text-xs text-neutral-500 mb-1">Saldo (${c.moeda})</label>
-            <input type="text" inputmode="decimal" class="wise-valor" data-wise-idx="${idx}"
-              value="${fmtNumBR(c.valor, 2)}" style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
-          </div>
-          <div>
-            <label class="block text-xs text-neutral-500 mb-1">Taxa Rende+ (% a.a.)</label>
-            <input type="text" inputmode="decimal" class="wise-taxa" data-wise-idx="${idx}"
-              value="${fmtNumBR(c.taxa, 2)}" style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
-          </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Saldo atual (${c.moeda})</label>
+          <input type="text" inputmode="decimal" class="wise-saldo" data-idx="${idx}"
+            value="${fmtNumBR(c.saldoAtual, 2)}"
+            style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
         </div>
-        <div class="grid grid-cols-3 gap-2 text-center border-t border-[#1f1f1f] pt-2">
-          <div>
-            <div class="text-sm font-bold text-white">${c.simbolo} ${fmtNumBR(c.valor, 2)}</div>
-            <div class="text-xs text-neutral-500">Saldo atual</div>
-          </div>
-          <div>
-            <div class="text-sm font-bold" style="color:#4ade80;">${c.simbolo} ${fmtNumBR(rendaMensalNat, 2)}/mês</div>
-            <div class="text-xs text-neutral-500">Renda em ${c.moeda}</div>
-          </div>
-          <div>
-            <div class="text-sm font-bold text-blue-400">${fmtBRL(rendaMensalBrl)}/mês</div>
-            <div class="text-xs text-neutral-500">Em BRL (~${fmtNumBR(rate, 2)})</div>
-          </div>
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Já rendeu (${c.moeda})</label>
+          <input type="text" inputmode="decimal" class="wise-jarendeu" data-idx="${idx}"
+            value="${fmtNumBR(c.jaRendeu || 0, 2)}"
+            style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
         </div>
-      </div>`;
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Taxa Rende+ (% a.a.)</label>
+          <input type="text" inputmode="decimal" class="wise-taxa" data-idx="${idx}"
+            value="${fmtNumBR(c.taxa, 2)}"
+            style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
+        </div>
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Cotação BRL</label>
+          <input type="text" inputmode="decimal" class="wise-rate" data-idx="${idx}"
+            value="${fmtNumBR(rate, 4)}"
+            style="font-size:0.85rem;padding:0.35rem 0.5rem;" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center bg-[#0d0d0d] rounded p-2">
+        <div>
+          <div class="text-sm font-bold text-white">${c.simbolo || ""} ${fmtNumBR(c.saldoAtual, 2)}</div>
+          <div class="text-xs text-neutral-500">Saldo atual</div>
+        </div>
+        <div>
+          <div class="text-sm font-bold text-green-300">${c.simbolo || ""} ${fmtNumBR(c.jaRendeu || 0, 2)}</div>
+          <div class="text-xs text-neutral-500">Já rendeu (total)</div>
+        </div>
+        <div>
+          <div class="text-sm font-bold" style="color:#4ade80;">${c.simbolo || ""} ${fmtNumBR(rendaMensalNat, 2)}/mês</div>
+          <div class="text-xs text-neutral-500">Renda est. em ${c.moeda}</div>
+        </div>
+        <div>
+          <div class="text-sm font-bold text-blue-400">${fmtBRL(rendaMensalBrl)}/mês</div>
+          <div class="text-xs text-neutral-500">≈ BRL (a ${fmtNumBR(rate, 2)})</div>
+        </div>
+      </div>
+    </div>`;
   }).join("");
 
-  // Listeners dos inputs inline
-  container.querySelectorAll(".wise-valor").forEach(inp => {
-    inp.addEventListener("input", () => {
-      const idx = parseInt(inp.dataset.wiseIdx);
-      wiseCoins[idx].valor = parseNumBR(inp.value);
+  // Listeners
+  container.querySelectorAll(".wise-saldo").forEach(inp => {
+    inp.addEventListener("change", () => {
+      const idx = parseInt(inp.dataset.idx);
+      wiseData.coins[idx].saldoAtual = parseNumBR(inp.value);
       saveWise(); renderWise(); renderRenda();
     });
   });
+  container.querySelectorAll(".wise-jarendeu").forEach(inp => {
+    inp.addEventListener("change", () => {
+      const idx = parseInt(inp.dataset.idx);
+      wiseData.coins[idx].jaRendeu = parseNumBR(inp.value);
+      saveWise(); renderWise();
+    });
+  });
   container.querySelectorAll(".wise-taxa").forEach(inp => {
-    inp.addEventListener("input", () => {
-      const idx = parseInt(inp.dataset.wiseIdx);
-      wiseCoins[idx].taxa = parseNumBR(inp.value);
+    inp.addEventListener("change", () => {
+      const idx = parseInt(inp.dataset.idx);
+      wiseData.coins[idx].taxa = parseNumBR(inp.value);
+      saveWise(); renderWise(); renderRenda();
+    });
+  });
+  container.querySelectorAll(".wise-rate").forEach(inp => {
+    inp.addEventListener("change", () => {
+      const idx = parseInt(inp.dataset.idx);
+      wiseData.coins[idx].rateBrl = parseNumBR(inp.value);
+      // Atualizar também o campo global se for USD ou EUR
+      if (wiseData.coins[idx].moeda === "USD") {
+        wiseData.usdBrl = parseNumBR(inp.value);
+        document.getElementById("wiseUsdBrl").value = inp.value;
+      }
+      if (wiseData.coins[idx].moeda === "EUR") {
+        wiseData.eurBrl = parseNumBR(inp.value);
+        document.getElementById("wiseEurBrl").value = inp.value;
+      }
       saveWise(); renderWise(); renderRenda();
     });
   });
   container.querySelectorAll(".wise-coin-toggle").forEach(chk => {
     chk.addEventListener("change", () => {
-      const idx = parseInt(chk.dataset.wiseIdx);
-      wiseCoins[idx].enabled = chk.checked;
+      const idx = parseInt(chk.dataset.idx);
+      wiseData.coins[idx].enabled = chk.checked;
       saveWise(); renderWise(); renderRenda();
+    });
+  });
+  container.querySelectorAll(".wise-remove").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.idx);
+      if (confirm(`Remover ${wiseData.coins[idx].moeda}?`)) {
+        wiseData.coins.splice(idx, 1);
+        saveWise(); renderWise(); renderRenda();
+      }
     });
   });
 
   // Aportes planejados
   if (aportesList) {
-    if (!wiseAportes.length) {
+    if (!wiseData.aportes.length) {
       aportesList.innerHTML = '<div class="text-xs text-neutral-600">Nenhum aporte planejado.</div>';
     } else {
-      aportesList.innerHTML = wiseAportes.map((a, idx) => {
-        const rate = getWiseRateBrl(a.moeda);
-        const brl = parseNumBR(a.valor.toString()) * rate;
-        return `<div class="flex items-center gap-3 bg-[#0a0a0a] rounded px-3 py-2">
-          <span class="text-white font-semibold">${a.moeda} ${fmtNumBR(parseNumBR(a.valor.toString()), 2)}</span>
+      aportesList.innerHTML = wiseData.aportes.map((a, idx) => {
+        const rate = getWiseRate(a.moeda);
+        const brl = parseNumBR(String(a.valor)) * rate;
+        return `<div class="flex items-center gap-3 bg-[#0a0a0a] rounded px-3 py-2 flex-wrap">
+          <span class="text-white font-semibold">${a.moeda} ${fmtNumBR(parseNumBR(String(a.valor)), 2)}</span>
           <span class="text-xs text-neutral-400">≈ ${fmtBRL(brl)}</span>
-          <span class="text-xs text-neutral-500">${a.data || "sem data"}</span>
-          <button class="danger text-xs ml-auto" data-del-aporte="${idx}">×</button>
+          <span class="text-xs text-neutral-500">${a.data ? "previsto " + a.data : ""}</span>
+          <span class="text-xs text-neutral-600 ml-auto italic">quando receber, atualize o saldo da moeda</span>
+          <button class="danger text-xs" data-del-aporte="${idx}" style="padding:0.15rem 0.4rem;">×</button>
         </div>`;
       }).join("");
       aportesList.querySelectorAll("[data-del-aporte]").forEach(btn => {
         btn.addEventListener("click", () => {
-          wiseAportes.splice(parseInt(btn.dataset.delAporte), 1);
+          wiseData.aportes.splice(parseInt(btn.dataset.delAporte), 1);
           saveWise(); renderWise();
         });
       });
     }
   }
 
-  // Total
-  const habilitadas = wiseCoins.filter(c => c.enabled);
-  const totalBrlHab = habilitadas.reduce((s, c) => s + c.valor * getWiseRateBrl(c.moeda), 0);
-  const totalMensalHab = habilitadas.reduce((s, c) => s + (c.valor * c.taxa / 100 / 12) * getWiseRateBrl(c.moeda), 0);
-  const totalAporteBrl = wiseAportes.reduce((s, a) => s + parseNumBR(a.valor.toString()) * getWiseRateBrl(a.moeda), 0);
-  resultEl.innerHTML = `
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-      <div class="metric"><div class="metric-value text-white">${fmtBRL(totalBrlHab)}</div><div class="metric-label">Total em BRL (hoje)</div></div>
-      <div class="metric"><div class="metric-value" style="color:#4ade80;">${fmtBRL(totalMensalHab)}</div><div class="metric-label">Renda Mensal em BRL</div></div>
-      <div class="metric"><div class="metric-value text-blue-400">${fmtBRL(totalMensalHab * 12)}</div><div class="metric-label">Renda Anual em BRL</div></div>
-      ${totalAporteBrl > 0 ? `<div class="metric"><div class="metric-value text-yellow-400">${fmtBRL(totalBrlHab + totalAporteBrl)}</div><div class="metric-label">Total c/ aportes</div></div>` : ""}
-    </div>
-  `;
-
+  // Totais
+  if (resultEl) {
+    const habilitadas = wiseData.coins.filter(c => c.enabled);
+    const totalBrl = habilitadas.reduce((s, c) => s + c.saldoAtual * getWiseRate(c.moeda), 0);
+    const totalJaRendeu = habilitadas.reduce((s, c) => s + (c.jaRendeu || 0) * getWiseRate(c.moeda), 0);
+    const totalMensalBrl = habilitadas.reduce((s, c) => {
+      return s + (c.saldoAtual * c.taxa / 100 / 12) * getWiseRate(c.moeda);
+    }, 0);
+    const totalAporteBrl = wiseData.aportes.reduce((s, a) => s + parseNumBR(String(a.valor)) * getWiseRate(a.moeda), 0);
+    const moedas = habilitadas.map(c => `${c.moeda}: ${c.simbolo || ""}${fmtNumBR(c.saldoAtual, 2)}`).join(" · ");
+    resultEl.innerHTML = `
+      <div class="text-xs text-neutral-500 mb-2">${moedas}</div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+        <div class="metric"><div class="metric-value text-white">${fmtBRL(totalBrl)}</div><div class="metric-label">Total em BRL hoje</div></div>
+        <div class="metric"><div class="metric-value text-green-300">${fmtBRL(totalJaRendeu)}</div><div class="metric-label">Já rendeu (em BRL)</div></div>
+        <div class="metric"><div class="metric-value" style="color:#4ade80;">${fmtBRL(totalMensalBrl)}</div><div class="metric-label">Renda mensal BRL</div></div>
+        ${totalAporteBrl > 0 ? `<div class="metric"><div class="metric-value text-yellow-400">${fmtBRL(totalBrl + totalAporteBrl)}</div><div class="metric-label">Total c/ aportes</div></div>` : `<div class="metric"><div class="metric-value text-blue-400">${fmtBRL(totalMensalBrl * 12)}</div><div class="metric-label">Renda anual BRL</div></div>`}
+      </div>
+      <div class="text-xs text-neutral-600 mt-2">Wise Rende+ não tem IR sobre o rendimento em si (tributação do Reino Unido na fonte). IR BR incide sobre ganho cambial na conversão. Atualizar o "Saldo atual" sempre que houver novo extrato.</div>
+    `;
+  }
   saveWise();
 }
 
 // Listeners globais Wise
-document.getElementById("wiseEnabled").addEventListener("change", () => { saveWise(); renderRenda(); });
-document.getElementById("wiseUsdBrl").addEventListener("input", () => { saveWise(); renderWise(); renderRenda(); });
-document.getElementById("wiseEurBrl").addEventListener("input", () => { saveWise(); renderWise(); renderRenda(); });
+document.getElementById("wiseEnabled").addEventListener("change", () => { saveWise(); renderWise(); renderRenda(); });
+document.getElementById("wiseUsdBrl").addEventListener("change", () => {
+  wiseData.usdBrl = parseNumBR(document.getElementById("wiseUsdBrl").value) || 5.70;
+  // Atualizar o rateBrl do coin USD
+  const usdCoin = wiseData.coins.find(c => c.moeda === "USD");
+  if (usdCoin) usdCoin.rateBrl = wiseData.usdBrl;
+  saveWise(); renderWise(); renderRenda();
+});
+document.getElementById("wiseEurBrl").addEventListener("change", () => {
+  wiseData.eurBrl = parseNumBR(document.getElementById("wiseEurBrl").value) || 6.30;
+  const eurCoin = wiseData.coins.find(c => c.moeda === "EUR");
+  if (eurCoin) eurCoin.rateBrl = wiseData.eurBrl;
+  saveWise(); renderWise(); renderRenda();
+});
 
-// Atualizar cotação via BCB
+// Atualizar cotação via API
 document.getElementById("wiseGetQuotes").addEventListener("click", async () => {
   const btn = document.getElementById("wiseGetQuotes");
-  btn.textContent = "Buscando…"; btn.disabled = true;
+  const status = document.getElementById("wiseQuoteStatus");
+  btn.textContent = "…"; btn.disabled = true;
   try {
-    // BCB série 1 = USD/BRL
     const r = await fetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.1/dados/ultimos/1?formato=json");
     if (r.ok) {
       const d = await r.json();
       if (d[0]?.valor) {
         const usd = parseFloat(d[0].valor.replace(",", "."));
+        wiseData.usdBrl = usd;
         document.getElementById("wiseUsdBrl").value = fmtNumBR(usd, 4);
-        // EUR/BRL ≈ USD/BRL × 1.08 (cross rate EURUSD) como fallback
-        // Tentamos via yfinance proxy
-        try {
-          const re = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/EURBRL=X?interval=1d&range=1d");
-          if (re.ok) {
-            const de = await re.json();
-            const eur = de.chart?.result?.[0]?.meta?.regularMarketPrice;
-            if (eur) document.getElementById("wiseEurBrl").value = fmtNumBR(eur, 4);
-          }
-        } catch(_) {}
-        saveWise(); renderWise(); renderRenda();
+        const usdCoin = wiseData.coins.find(c => c.moeda === "USD");
+        if (usdCoin) usdCoin.rateBrl = usd;
       }
     }
-  } catch(e) { console.warn("Cotação:", e); }
-  btn.textContent = "↻ Atualizar cotação"; btn.disabled = false;
+    // EUR via Yahoo Finance
+    try {
+      const re = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/EURBRL=X?interval=1d&range=1d");
+      if (re.ok) {
+        const de = await re.json();
+        const eur = de.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (eur) {
+          wiseData.eurBrl = eur;
+          document.getElementById("wiseEurBrl").value = fmtNumBR(eur, 4);
+          const eurCoin = wiseData.coins.find(c => c.moeda === "EUR");
+          if (eurCoin) eurCoin.rateBrl = eur;
+        }
+      }
+    } catch(_) {}
+    if (status) status.textContent = `Atualizado ${new Date().toLocaleTimeString("pt-BR")}`;
+    saveWise(); renderWise(); renderRenda();
+  } catch(e) {
+    if (status) status.textContent = "Erro";
+    console.warn("Cotação:", e);
+  }
+  btn.textContent = "↻ Atualizar"; btn.disabled = false;
+});
+
+// Adicionar moeda nova
+document.getElementById("wiseAddCoin").addEventListener("click", () => {
+  document.getElementById("wiseAddCoinForm").classList.remove("hidden");
+});
+document.getElementById("wiseNewCancel").addEventListener("click", () => {
+  document.getElementById("wiseAddCoinForm").classList.add("hidden");
+});
+document.getElementById("wiseNewSave").addEventListener("click", () => {
+  const moeda = document.getElementById("wiseNewMoeda").value;
+  const rate = parseNumBR(document.getElementById("wiseNewRate").value) || 6.0;
+  if (wiseData.coins.find(c => c.moeda === moeda)) return alert(`${moeda} já existe.`);
+  wiseData.coins.push({ moeda, simbolo: "", saldoAtual: 0, jaRendeu: 0, taxa: 0, rateBrl: rate, enabled: true });
+  saveWise(); renderWise();
+  document.getElementById("wiseAddCoinForm").classList.add("hidden");
 });
 
 // Aportes planejados
@@ -583,26 +703,11 @@ document.getElementById("wiseAporteSave").addEventListener("click", () => {
   const valor = document.getElementById("wiseAporteValor").value;
   const data = document.getElementById("wiseAporteData").value;
   if (!valor) return alert("Informe o valor.");
-  wiseAportes.push({ moeda, valor, data });
+  wiseData.aportes.push({ moeda, valor, data });
   saveWise(); renderWise();
   document.getElementById("wiseAporteForm").classList.add("hidden");
   document.getElementById("wiseAporteValor").value = "";
 });
-
-// Integrar Wise no renderRenda (total consolidado)
-const _origRenderRenda = renderRenda;
-function getWiseTotalMensalLiq() {
-  if (!document.getElementById("wiseEnabled").checked) return 0;
-  return wiseCoins
-    .filter(c => c.enabled)
-    .reduce((s, c) => {
-      const rate = getWiseRateBrl(c.moeda);
-      // Wise Rende+ não tem IR no Brasil como rendimento de conta corrente exterior
-      // (IR incide apenas no ganho cambial na conversão)
-      // Aqui tratamos como bruto = líquido pra fins de tracking
-      return s + (c.valor * c.taxa / 100 / 12) * rate;
-    }, 0);
-}
 
 loadWise();
 renderWise();
@@ -913,44 +1018,76 @@ renderWise();
 
 
       <!-- BLOCO: RESERVAS INTERNACIONAIS WISE -->
-      <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-3" id="wiseBlock">
+      <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-4" id="wiseBlock">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <div class="flex items-center gap-2">
-            <span class="pill" style="background:rgba(22,163,74,0.15);color:#4ade80;">Wise Rende+</span>
-            <span class="text-xs text-neutral-500">Rendimentos em moeda estrangeira</span>
+            <span class="pill" style="background:rgba(22,163,74,0.15);color:#4ade80;">🌍 Wise Rende+</span>
+            <span class="text-xs text-neutral-500">Saldo atual em moeda estrangeira — já inclui rendimentos acumulados</span>
           </div>
           <label class="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
             <input type="checkbox" id="wiseEnabled" checked style="width:16px;height:16px;">
-            Incluir no total
+            Incluir no total BRL
           </label>
         </div>
 
         <!-- Cotações -->
-        <div class="flex items-center gap-3 flex-wrap">
-          <span class="text-xs text-neutral-500">Cotações (edite se necessário):</span>
+        <div class="flex items-center gap-3 flex-wrap bg-[#0a0a0a] rounded p-2">
+          <span class="text-xs text-neutral-500">Cotações:</span>
           <div class="flex items-center gap-1">
             <span class="text-xs text-neutral-400">USD/BRL</span>
-            <input type="text" inputmode="decimal" id="wiseUsdBrl" value="5,70" style="width:80px;padding:0.25rem 0.5rem;font-size:0.8rem;" />
+            <input type="text" inputmode="decimal" id="wiseUsdBrl" value="5,70"
+              style="width:75px;padding:0.25rem 0.4rem;font-size:0.8rem;" />
           </div>
           <div class="flex items-center gap-1">
             <span class="text-xs text-neutral-400">EUR/BRL</span>
-            <input type="text" inputmode="decimal" id="wiseEurBrl" value="6,30" style="width:80px;padding:0.25rem 0.5rem;font-size:0.8rem;" />
+            <input type="text" inputmode="decimal" id="wiseEurBrl" value="6,30"
+              style="width:75px;padding:0.25rem 0.4rem;font-size:0.8rem;" />
           </div>
-          <button id="wiseGetQuotes" class="secondary text-xs">↻ Atualizar cotação</button>
+          <button id="wiseGetQuotes" class="secondary text-xs" style="padding:0.25rem 0.6rem;">↻ Atualizar</button>
+          <span id="wiseQuoteStatus" class="text-xs text-neutral-600"></span>
         </div>
 
-        <!-- Moedas -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="wiseCoins"></div>
+        <!-- Cards de moeda -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="wiseCoinsContainer"></div>
 
-        <!-- Aporte futuro -->
-        <div class="border-t border-[#1f1f1f] pt-3">
-          <div class="text-xs text-neutral-400 mb-2">Aportes planejados (ex: 2.000 EUR semana que vem)</div>
-          <div id="wiseAportesList" class="space-y-2"></div>
-          <button id="wiseAddAporte" class="secondary text-xs mt-2">+ Adicionar aporte planejado</button>
-          <div id="wiseAporteForm" class="hidden mt-2 flex gap-2 flex-wrap items-end">
+        <!-- Botão adicionar moeda -->
+        <div class="flex gap-2 items-center">
+          <button id="wiseAddCoin" class="secondary text-xs">+ Adicionar moeda</button>
+          <span class="text-xs text-neutral-600">Você pode adicionar GBP ou outras moedas da Wise</span>
+        </div>
+        <div id="wiseAddCoinForm" class="hidden bg-[#0a0a0a] rounded p-3 space-y-2">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div>
               <label class="block text-xs text-neutral-500 mb-1">Moeda</label>
-              <select id="wiseAporteMoeda" style="width:90px;padding:0.35rem 0.5rem;font-size:0.85rem;">
+              <select id="wiseNewMoeda" style="padding:0.35rem 0.5rem;font-size:0.85rem;">
+                <option value="GBP">GBP</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="ARS">ARS</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Cotação BRL</label>
+              <input type="text" inputmode="decimal" id="wiseNewRate" placeholder="Ex: 7,20" />
+            </div>
+            <div class="flex items-end gap-2 col-span-2">
+              <button id="wiseNewSave" class="text-xs">Adicionar</button>
+              <button id="wiseNewCancel" class="secondary text-xs">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aportes planejados -->
+        <div class="border-t border-[#1f1f1f] pt-3 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="text-xs text-neutral-400 font-semibold">Aportes planejados</div>
+            <button id="wiseAddAporte" class="secondary text-xs">+ Adicionar</button>
+          </div>
+          <div id="wiseAportesList"></div>
+          <div id="wiseAporteForm" class="hidden grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Moeda</label>
+              <select id="wiseAporteMoeda" style="padding:0.35rem 0.5rem;font-size:0.85rem;">
                 <option value="USD">USD</option>
                 <option value="EUR" selected>EUR</option>
                 <option value="GBP">GBP</option>
@@ -958,21 +1095,21 @@ renderWise();
             </div>
             <div>
               <label class="block text-xs text-neutral-500 mb-1">Valor</label>
-              <input type="text" inputmode="decimal" id="wiseAporteValor" placeholder="Ex: 2000" style="width:120px;" />
+              <input type="text" inputmode="decimal" id="wiseAporteValor" placeholder="Ex: 2000" />
             </div>
             <div>
               <label class="block text-xs text-neutral-500 mb-1">Data prevista</label>
-              <input type="date" id="wiseAporteData" style="width:150px;" />
+              <input type="date" id="wiseAporteData" />
             </div>
-            <button id="wiseAporteSave" class="text-xs" style="padding:0.35rem 0.75rem;">Salvar</button>
-            <button id="wiseAporteCancel" class="secondary text-xs" style="padding:0.35rem 0.75rem;">Cancelar</button>
+            <div class="flex items-end gap-2">
+              <button id="wiseAporteSave" class="text-xs">Salvar</button>
+              <button id="wiseAporteCancel" class="secondary text-xs">×</button>
+            </div>
           </div>
         </div>
 
-        <!-- Totais -->
-        <div class="border-t border-[#1f1f1f] pt-3 text-sm text-neutral-400" id="wiseResult">
-          Preencha os valores abaixo para ver os totais.
-        </div>
+        <!-- Totais consolidados Wise -->
+        <div id="wiseResult" class="border-t border-[#1f1f1f] pt-3"></div>
       </div>
 
 
@@ -2063,11 +2200,10 @@ function renderRenda() {
 
   // ==== TOTAIS CONSOLIDADOS ====
   const wiseMensalBrl = (typeof getWiseTotalMensalLiq === "function") ? getWiseTotalMensalLiq() : 0;
+  const wiseBrl = (typeof getWiseTotalBrl === "function") ? getWiseTotalBrl() : 0;
   const totalMonthlyGross = strategyMonthlyGross + reservaMonthlyGross + wiseMensalBrl;
   const totalMonthlyNet = strategyMonthlyNet + reservaMonthlyNet + wiseMensalBrl;
-  const totalPatrimony = totalStrategyValue + (reservaState.enabled ? reservaState.valor : 0)
-    + ((typeof getWiseTotalMensalLiq === "function" && document.getElementById("wiseEnabled")?.checked)
-      ? wiseCoins.filter(c => c.enabled).reduce((s,c) => s + c.valor * getWiseRateBrl(c.moeda), 0) : 0);
+  const totalPatrimony = totalStrategyValue + (reservaState.enabled ? reservaState.valor : 0) + wiseBrl;
   const yieldLiq = totalPatrimony > 0 ? (totalMonthlyNet * 12 / totalPatrimony * 100) : 0;
 
   document.getElementById("rendaMensalBruta").textContent = fmtBRL(totalMonthlyGross);
