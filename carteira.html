@@ -264,151 +264,117 @@
       <button id="editYields" class="secondary text-xs">Editar taxas dos buckets</button>
     </div>
     <div class="card-body space-y-4">
-      <div class="text-xs text-neutral-400 leading-relaxed">
-        Estima quanto seu patrimônio gera por mês. Separa em <b>reserva pré-existente</b> (dinheiro que já está parado em CDB/poupança, fora da estratégia)
-        e <b>carteira estratégica</b> (o que segue a alocação da seção 1). Totais somam os dois.
+      <div class="text-xs text-neutral-400">
+        Registre todos os seus ativos abaixo. O saldo atual já inclui rendimentos acumulados — atualize sempre que verificar o extrato.
       </div>
 
+      <!-- BLOCO A: INTER PORQUINHO -->
       <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-3">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <div class="flex items-center gap-2">
-            <span class="pill pill-rf-selic">Reserva Pré-existente</span>
-            <span class="text-xs text-neutral-500">Fora da estratégia — CDB/poupança que já rende</span>
+            <span class="pill pill-rf-selic">Inter Porquinho</span>
+            <span class="text-xs text-neutral-500">CDB 100% CDI — Mauricio Viagem</span>
           </div>
           <label class="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
-            <input type="checkbox" id="reservaEnabled" checked style="width:16px;height:16px;">
+            <input type="checkbox" id="interEnabled" checked style="width:16px;height:16px;">
             Incluir no total
           </label>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
-            <label class="block text-xs text-neutral-500 mb-1">Apelido</label>
-            <input type="text" id="reservaNome" placeholder="Ex: Porquinho Inter" />
+            <label class="block text-xs text-neutral-500 mb-1">Saldo atual (R$)</label>
+            <input type="text" inputmode="decimal" id="interSaldo" value="102.805,01" />
           </div>
           <div>
-            <label class="block text-xs text-neutral-500 mb-1">Valor (R$)</label>
-            <input type="text" inputmode="decimal" id="reservaValor" placeholder="Ex: 102427,80" />
+            <label class="block text-xs text-neutral-500 mb-1">Já rendeu (R$)</label>
+            <input type="text" inputmode="decimal" id="interJaRendeu" value="4.805,01" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. bruta (%)</label>
-            <input type="text" inputmode="decimal" id="reservaTaxa" placeholder="14,25" />
+            <input type="text" inputmode="decimal" id="interTaxa" value="14,25" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">IR (%)</label>
-            <input type="text" inputmode="decimal" id="reservaIR" placeholder="15" />
+            <input type="text" inputmode="decimal" id="interIR" value="15" />
           </div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div>
-            <label class="block text-xs text-neutral-500 mb-1">Início (usado no gráfico)</label>
-            <input type="date" id="reservaInicio" />
-          </div>
-        </div>
-        <div class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2" id="reservaResult">
-          Renda mensal líquida: <b class="text-white">R$ 0,00</b> · Anual líquida: R$ 0,00
-        </div>
+        <div id="interResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
       </div>
 
-
-      <!-- BLOCO: RESERVAS INTERNACIONAIS WISE -->
-      <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-4" id="wiseBlock">
+      <!-- BLOCO B: WISE USD -->
+      <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-3">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <div class="flex items-center gap-2">
-            <span class="pill" style="background:rgba(22,163,74,0.15);color:#4ade80;">🌍 Wise Rende+</span>
-            <span class="text-xs text-neutral-500">Saldo atual em moeda estrangeira — já inclui rendimentos acumulados</span>
+            <span class="pill" style="background:rgba(22,163,74,0.15);color:#4ade80;">Wise USD</span>
+            <span class="text-xs text-neutral-500">Rende+ 3,39% a.a. — conta dia a dia</span>
           </div>
-          <div class="flex items-center gap-2">
-            <button onclick="resetWiseToDefaults()" class="secondary text-xs" style="padding:0.2rem 0.5rem;font-size:0.65rem;">↺ Reset</button>
-            <label class="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
-              <input type="checkbox" id="wiseEnabled" checked style="width:16px;height:16px;">
-              Incluir no total BRL
-            </label>
+          <label class="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
+            <input type="checkbox" id="wiseUsdEnabled" checked style="width:16px;height:16px;">
+            Incluir no total
+          </label>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Saldo atual (USD)</label>
+            <input type="text" inputmode="decimal" id="wiseUsdSaldo" value="102,91" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Rendeu este mês (USD)</label>
+            <input type="text" inputmode="decimal" id="wiseUsdRendeu" value="0,16" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. (%)</label>
+            <input type="text" inputmode="decimal" id="wiseUsdTaxa" value="3,39" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">USD/BRL</label>
+            <input type="text" inputmode="decimal" id="wiseUsdRate" value="5,70" />
           </div>
         </div>
-
-        <!-- Cotações -->
-        <div class="flex items-center gap-3 flex-wrap bg-[#0a0a0a] rounded p-2">
-          <span class="text-xs text-neutral-500">Cotações:</span>
-          <div class="flex items-center gap-1">
-            <span class="text-xs text-neutral-400">USD/BRL</span>
-            <input type="text" inputmode="decimal" id="wiseUsdBrl" value="5,70"
-              style="width:75px;padding:0.25rem 0.4rem;font-size:0.8rem;" />
-          </div>
-          <div class="flex items-center gap-1">
-            <span class="text-xs text-neutral-400">EUR/BRL</span>
-            <input type="text" inputmode="decimal" id="wiseEurBrl" value="6,30"
-              style="width:75px;padding:0.25rem 0.4rem;font-size:0.8rem;" />
-          </div>
-          <button id="wiseGetQuotes" class="secondary text-xs" style="padding:0.25rem 0.6rem;">↻ Atualizar</button>
-          <span id="wiseQuoteStatus" class="text-xs text-neutral-600"></span>
-        </div>
-
-        <!-- Cards de moeda -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="wiseCoinsContainer"></div>
-
-        <!-- Botão adicionar moeda -->
-        <div class="flex gap-2 items-center">
-          <button id="wiseAddCoin" class="secondary text-xs">+ Adicionar moeda</button>
-          <span class="text-xs text-neutral-600">Você pode adicionar GBP ou outras moedas da Wise</span>
-        </div>
-        <div id="wiseAddCoinForm" class="hidden bg-[#0a0a0a] rounded p-3 space-y-2">
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div>
-              <label class="block text-xs text-neutral-500 mb-1">Moeda</label>
-              <select id="wiseNewMoeda" style="padding:0.35rem 0.5rem;font-size:0.85rem;">
-                <option value="GBP">GBP</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="ARS">ARS</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs text-neutral-500 mb-1">Cotação BRL</label>
-              <input type="text" inputmode="decimal" id="wiseNewRate" placeholder="Ex: 7,20" />
-            </div>
-            <div class="flex items-end gap-2 col-span-2">
-              <button id="wiseNewSave" class="text-xs">Adicionar</button>
-              <button id="wiseNewCancel" class="secondary text-xs">Cancelar</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Aportes planejados -->
-        <div class="border-t border-[#1f1f1f] pt-3 space-y-2">
-          <div class="flex items-center justify-between">
-            <div class="text-xs text-neutral-400 font-semibold">Aportes planejados</div>
-            <button id="wiseAddAporte" class="secondary text-xs">+ Adicionar</button>
-          </div>
-          <div id="wiseAportesList"></div>
-          <div id="wiseAporteForm" class="hidden grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div>
-              <label class="block text-xs text-neutral-500 mb-1">Moeda</label>
-              <select id="wiseAporteMoeda" style="padding:0.35rem 0.5rem;font-size:0.85rem;">
-                <option value="USD">USD</option>
-                <option value="EUR" selected>EUR</option>
-                <option value="GBP">GBP</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs text-neutral-500 mb-1">Valor</label>
-              <input type="text" inputmode="decimal" id="wiseAporteValor" placeholder="Ex: 2000" />
-            </div>
-            <div>
-              <label class="block text-xs text-neutral-500 mb-1">Data prevista</label>
-              <input type="date" id="wiseAporteData" />
-            </div>
-            <div class="flex items-end gap-2">
-              <button id="wiseAporteSave" class="text-xs">Salvar</button>
-              <button id="wiseAporteCancel" class="secondary text-xs">×</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Totais consolidados Wise -->
-        <div id="wiseResult" class="border-t border-[#1f1f1f] pt-3"></div>
+        <div id="wiseUsdResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
       </div>
 
+      <!-- BLOCO C: WISE EUR -->
+      <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="pill" style="background:rgba(99,102,241,0.15);color:#a5b4fc;">Wise EUR</span>
+            <span class="text-xs text-neutral-500">Rende+ 1,98% a.a. — conta dia a dia</span>
+          </div>
+          <label class="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
+            <input type="checkbox" id="wiseEurEnabled" checked style="width:16px;height:16px;">
+            Incluir no total
+          </label>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Saldo atual (EUR)</label>
+            <input type="text" inputmode="decimal" id="wiseEurSaldo" value="1.014,21" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Rendeu este mês (EUR)</label>
+            <input type="text" inputmode="decimal" id="wiseEurRendeu" value="0,97" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. (%)</label>
+            <input type="text" inputmode="decimal" id="wiseEurTaxa" value="1,98" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">EUR/BRL</label>
+            <input type="text" inputmode="decimal" id="wiseEurRate" value="6,30" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Aporte planejado (EUR) — ex: 2.000 semana que vem</label>
+          <div class="flex gap-2">
+            <input type="text" inputmode="decimal" id="wiseEurAporte" value="2.000,00" style="flex:1;" />
+            <input type="date" id="wiseEurAporteData" style="flex:1;" />
+          </div>
+        </div>
+        <div id="wiseEurResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
+      </div>
 
+      <!-- BLOCO D: CARTEIRA ESTRATÉGICA -->
       <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-3">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="pill pill-rv-br">Carteira Estratégica</span>
@@ -424,7 +390,7 @@
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Valor base (R$)</label>
-            <input type="text" inputmode="decimal" id="rendaBaseValor" placeholder="Ex: 50000,00" />
+            <input type="text" inputmode="decimal" id="rendaBaseValor" placeholder="Ex: 50.000,00" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Aporte extra planejado (R$)</label>
@@ -432,24 +398,25 @@
           </div>
         </div>
         <div>
-          <div class="text-xs text-neutral-500 uppercase tracking-wider mb-2">Rendimento por bucket (taxas editáveis)</div>
+          <div class="text-xs text-neutral-500 uppercase tracking-wider mb-2">Rendimento por bucket</div>
           <div class="table-wrap">
             <table id="rendaTable"></table>
           </div>
         </div>
       </div>
 
+      <!-- TOTAIS CONSOLIDADOS -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div class="metric"><div id="rendaMensalBruta" class="metric-value">R$ 0</div><div class="metric-label">Renda Mensal Bruta Total</div></div>
-        <div class="metric"><div id="rendaMensalLiq" class="metric-value" style="color: var(--accent);">R$ 0</div><div class="metric-label">Renda Mensal Líquida Total</div></div>
-        <div class="metric"><div id="rendaAnualLiq" class="metric-value">R$ 0</div><div class="metric-label">Renda Anual Líquida Total</div></div>
+        <div class="metric"><div id="rendaMensalBruta" class="metric-value">R$ 0</div><div class="metric-label">Renda Mensal Bruta</div></div>
+        <div class="metric"><div id="rendaMensalLiq" class="metric-value" style="color:var(--accent);">R$ 0</div><div class="metric-label">Renda Mensal Líquida</div></div>
+        <div class="metric"><div id="rendaAnualLiq" class="metric-value">R$ 0</div><div class="metric-label">Renda Anual Líquida</div></div>
         <div class="metric"><div id="rendaYieldLiq" class="metric-value">0%</div><div class="metric-label">Yield Líquido a.a.</div></div>
       </div>
 
       <div class="text-xs text-neutral-500 border-t border-[#1f1f1f] pt-3 space-y-1">
-        <div><b>Nota:</b> "Renda mensal" é rendimento total anual dividido por 12 — simplificação. Cash real na conta vem de:
-        SPYI11/QQQI11 (mensal), Tesouro IPCA+ (cupom semestral), dividendos de ações. CDB e fundos você resgata quando precisar.</div>
-        <div><b>IR:</b> 15% assume horizonte &gt; 720 dias para RF. Para RV BR (fundo de ações) 15% sobre ganho. Ajuste no botão "Editar taxas".</div>
+        <div><b>Wise Rende+:</b> sem IR sobre rendimento (tributação na fonte UK/EU). IR BR incide só no ganho cambial ao converter.</div>
+        <div><b>Inter Porquinho:</b> CDB 100% CDI, IR regressivo — 15% após 720 dias.</div>
+        <div><b>Renda mensal</b> = rendimento anual ÷ 12. Atualize os saldos sempre que verificar o extrato.</div>
       </div>
     </div>
   </section>
@@ -1348,212 +1315,261 @@ async function loadSignals() {
 }
 document.getElementById("refreshSignals").addEventListener("click", loadSignals);
 
+
 // ============ SIMULADOR DE RENDA PASSIVA ============
-// Parser BR: aceita "102427,80", "102.427,80", "102427.80"
+// Lê os valores dos inputs diretamente — sem estado complexo
+
 function parseNumBR(str) {
-  if (str === null || str === undefined || str === "") return 0;
+  if (!str) return 0;
   const s = String(str).trim();
-  if (s.includes(",")) {
-    return parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0;
-  }
+  if (s.includes(',')) return parseFloat(s.replace(/\./g,'').replace(',','.')) || 0;
   return parseFloat(s) || 0;
 }
-function fmtNumBR(n, dec = 2) {
-  return (n || 0).toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+function fmtNumBR(n, dec) {
+  return (n||0).toLocaleString('pt-BR', {minimumFractionDigits:dec||2, maximumFractionDigits:dec||2});
 }
 
-const DEFAULT_YIELDS = {
-  rv_int:   { yield: 8.0,  ir: 15, label: "SPYI11/QQQI11 (yield ~8-10% via covered call)" },
-  rv_br:    { yield: 12.0, ir: 15, label: "Fundo de ação (retorno esperado, sem distribuição regular)" },
-  rf_ipca:  { yield: 11.5, ir: 15, label: "Tesouro IPCA+ (IPCA ~4,7% + juro real ~7%)" },
-  rf_selic: { yield: 14.25, ir: 15, label: "CDB 100% CDI ou Selic (~Selic atual)" },
-};
-let yieldsState = JSON.parse(JSON.stringify(DEFAULT_YIELDS));
-
-let reservaState = { enabled: true, nome: "", valor: 0, taxa: 14.25, ir: 15, startDate: "" };
-
-function loadYields() {
-  try {
-    const raw = localStorage.getItem("fin_trader_yields_v1");
-    if (raw) {
-      const data = JSON.parse(raw);
-      for (const k of CATEGORIES) {
-        if (data[k]?.yield != null) yieldsState[k].yield = data[k].yield;
-        if (data[k]?.ir != null) yieldsState[k].ir = data[k].ir;
-      }
-    }
-  } catch (e) { console.warn("Load yields:", e); }
-}
-function saveYields() {
-  try {
-    const data = Object.fromEntries(CATEGORIES.map(k => [k, { yield: yieldsState[k].yield, ir: yieldsState[k].ir }]));
-    localStorage.setItem("fin_trader_yields_v1", JSON.stringify(data));
-  } catch (e) { console.warn("Save yields:", e); }
-}
-function loadReserva() {
-  try {
-    const raw = localStorage.getItem("fin_trader_reserva_v1");
-    if (raw) Object.assign(reservaState, JSON.parse(raw));
-  } catch (e) { console.warn("Load reserva:", e); }
-  document.getElementById("reservaEnabled").checked = reservaState.enabled;
-  document.getElementById("reservaNome").value = reservaState.nome || "";
-  document.getElementById("reservaValor").value = reservaState.valor > 0 ? fmtNumBR(reservaState.valor) : "";
-  document.getElementById("reservaTaxa").value = fmtNumBR(reservaState.taxa);
-  document.getElementById("reservaIR").value = fmtNumBR(reservaState.ir, 0);
-  document.getElementById("reservaInicio").value = reservaState.startDate || "";
-}
-function saveReserva() {
-  try {
-    localStorage.setItem("fin_trader_reserva_v1", JSON.stringify(reservaState));
-  } catch (e) { console.warn("Save reserva:", e); }
+function calcBloco(saldo, taxa, ir) {
+  const anualBruto = saldo * taxa / 100;
+  const anualLiq = anualBruto * (1 - ir / 100);
+  return { mensal: anualLiq / 12, anual: anualLiq, bruto: anualBruto / 12 };
 }
 
 function renderRenda() {
-  // ==== BLOCO A: Reserva pré-existente ====
-  reservaState.enabled = document.getElementById("reservaEnabled").checked;
-  reservaState.nome = document.getElementById("reservaNome").value;
-  reservaState.valor = parseNumBR(document.getElementById("reservaValor").value);
-  reservaState.taxa = parseNumBR(document.getElementById("reservaTaxa").value);
-  reservaState.ir = parseNumBR(document.getElementById("reservaIR").value);
-  reservaState.startDate = document.getElementById("reservaInicio").value;
-
-  let reservaAnnualGross = 0, reservaAnnualNet = 0, reservaMonthlyGross = 0, reservaMonthlyNet = 0;
-  if (reservaState.enabled && reservaState.valor > 0) {
-    reservaAnnualGross = reservaState.valor * reservaState.taxa / 100;
-    reservaAnnualNet = reservaAnnualGross * (1 - reservaState.ir / 100);
-    reservaMonthlyGross = reservaAnnualGross / 12;
-    reservaMonthlyNet = reservaAnnualNet / 12;
+  // Bloco A: Inter
+  const interEnabled = document.getElementById('interEnabled')?.checked;
+  const interSaldo = parseNumBR(document.getElementById('interSaldo')?.value);
+  const interJaRendeu = parseNumBR(document.getElementById('interJaRendeu')?.value);
+  const interTaxa = parseNumBR(document.getElementById('interTaxa')?.value);
+  const interIR = parseNumBR(document.getElementById('interIR')?.value);
+  const interCalc = calcBloco(interSaldo, interTaxa, interIR);
+  const interRes = document.getElementById('interResult');
+  if (interRes) {
+    interRes.innerHTML = `<b class="text-white">R$ ${fmtNumBR(interSaldo)}</b> × ${fmtNumBR(interTaxa)}% a.a. → `
+      + `Mensal líquida: <b style="color:var(--accent)">R$ ${fmtNumBR(interCalc.mensal)}</b> · `
+      + `Anual: R$ ${fmtNumBR(interCalc.anual)} · `
+      + `<span class="text-green-300">Já rendeu: R$ ${fmtNumBR(interJaRendeu)}</span>`;
   }
-  document.getElementById("reservaResult").innerHTML =
-    `<b class="text-neutral-300">${escapeHtml(reservaState.nome || "Reserva")}</b> — ` +
-    `${fmtBRL(reservaState.valor)} × ${fmtNumBR(reservaState.taxa)}% a.a. → ` +
-    `Renda mensal líquida: <b class="text-white">${fmtBRL(reservaMonthlyNet)}</b> · Anual líquida: ${fmtBRL(reservaAnnualNet)}`;
 
-  // ==== BLOCO B: Carteira estratégica ====
-  const baseMode = document.getElementById("rendaBase").value;
-  const positionsTotal = state.positions.reduce((s, p) => s + (p.value || 0), 0);
-  const manualValor = parseNumBR(document.getElementById("rendaBaseValor").value);
-  const extra = parseNumBR(document.getElementById("rendaAporteExtra").value);
+  // Bloco B: Wise USD
+  const wiseUsdEnabled = document.getElementById('wiseUsdEnabled')?.checked;
+  const wiseUsdSaldo = parseNumBR(document.getElementById('wiseUsdSaldo')?.value);
+  const wiseUsdRendeu = parseNumBR(document.getElementById('wiseUsdRendeu')?.value);
+  const wiseUsdTaxa = parseNumBR(document.getElementById('wiseUsdTaxa')?.value);
+  const wiseUsdRate = parseNumBR(document.getElementById('wiseUsdRate')?.value) || 5.70;
+  const wiseUsdSaldoBrl = wiseUsdSaldo * wiseUsdRate;
+  const wiseUsdMensalUsd = wiseUsdSaldo * wiseUsdTaxa / 100 / 12;
+  const wiseUsdMensalBrl = wiseUsdMensalUsd * wiseUsdRate;
+  const wiseUsdRes = document.getElementById('wiseUsdResult');
+  if (wiseUsdRes) {
+    wiseUsdRes.innerHTML = `<b class="text-white">$${fmtNumBR(wiseUsdSaldo)}</b> `
+      + `(≈ R$ ${fmtNumBR(wiseUsdSaldoBrl)} @ ${fmtNumBR(wiseUsdRate,4)}) × ${fmtNumBR(wiseUsdTaxa)}% a.a. → `
+      + `Mensal: <b style="color:var(--accent)">$${fmtNumBR(wiseUsdMensalUsd,2)} ≈ R$ ${fmtNumBR(wiseUsdMensalBrl)}</b> · `
+      + `<span class="text-green-300">Rendeu este mês: $${fmtNumBR(wiseUsdRendeu,2)}</span>`;
+  }
 
-  if (baseMode === "positions") {
-    document.getElementById("rendaBaseValor").value = positionsTotal > 0 ? fmtNumBR(positionsTotal) : "";
-    document.getElementById("rendaBaseValor").disabled = true;
-    document.getElementById("rendaBaseValor").placeholder = "Soma automática das posições (mude p/ Valor manual pra editar)";
+  // Bloco C: Wise EUR
+  const wiseEurEnabled = document.getElementById('wiseEurEnabled')?.checked;
+  const wiseEurSaldo = parseNumBR(document.getElementById('wiseEurSaldo')?.value);
+  const wiseEurRendeu = parseNumBR(document.getElementById('wiseEurRendeu')?.value);
+  const wiseEurTaxa = parseNumBR(document.getElementById('wiseEurTaxa')?.value);
+  const wiseEurRate = parseNumBR(document.getElementById('wiseEurRate')?.value) || 6.30;
+  const wiseEurAporte = parseNumBR(document.getElementById('wiseEurAporte')?.value);
+  const wiseEurData = document.getElementById('wiseEurAporteData')?.value;
+  const wiseEurSaldoBrl = wiseEurSaldo * wiseEurRate;
+  const wiseEurMensalEur = wiseEurSaldo * wiseEurTaxa / 100 / 12;
+  const wiseEurMensalBrl = wiseEurMensalEur * wiseEurRate;
+  const wiseEurRes = document.getElementById('wiseEurResult');
+  if (wiseEurRes) {
+    let html2 = `<b class="text-white">€${fmtNumBR(wiseEurSaldo)}</b> `
+      + `(≈ R$ ${fmtNumBR(wiseEurSaldoBrl)} @ ${fmtNumBR(wiseEurRate,4)}) × ${fmtNumBR(wiseEurTaxa)}% a.a. → `
+      + `Mensal: <b style="color:var(--accent)">€${fmtNumBR(wiseEurMensalEur,2)} ≈ R$ ${fmtNumBR(wiseEurMensalBrl)}</b> · `
+      + `<span class="text-green-300">Rendeu este mês: €${fmtNumBR(wiseEurRendeu,2)}</span>`;
+    if (wiseEurAporte > 0) {
+      const totalComAporte = wiseEurSaldo + wiseEurAporte;
+      html2 += ` · <span class="text-yellow-400">Com aporte €${fmtNumBR(wiseEurAporte)}: total €${fmtNumBR(totalComAporte)} ≈ R$ ${fmtNumBR(totalComAporte * wiseEurRate)}</span>`;
+      if (wiseEurData) html2 += ` <span class="text-neutral-500">(previsto ${wiseEurData})</span>`;
+    }
+    wiseEurRes.innerHTML = html2;
+  }
+
+  // Bloco D: Carteira Estratégica
+  const positions = typeof state !== 'undefined' ? state.positions : [];
+  const positionsTotal = positions.reduce((s,p) => s + (p.value||0), 0);
+  const baseMode = document.getElementById('rendaBase')?.value;
+  let baseValue = 0;
+  const rendaBaseValorEl = document.getElementById('rendaBaseValor');
+  if (baseMode === 'positions') {
+    baseValue = positionsTotal;
+    if (rendaBaseValorEl) {
+      rendaBaseValorEl.value = positionsTotal > 0 ? fmtNumBR(positionsTotal) : '';
+      rendaBaseValorEl.disabled = true;
+    }
   } else {
-    document.getElementById("rendaBaseValor").disabled = false;
-    document.getElementById("rendaBaseValor").placeholder = "Ex: 50000,00";
+    baseValue = parseNumBR(rendaBaseValorEl?.value);
+    if (rendaBaseValorEl) rendaBaseValorEl.disabled = false;
   }
-  const baseValue = baseMode === "positions" ? positionsTotal : manualValor;
-  const totalStrategyValue = baseValue + extra;
+  const extra = parseNumBR(document.getElementById('rendaAporteExtra')?.value);
+  const totalStrategy = baseValue + extra;
 
-  const byCategory = { rv_int: 0, rv_br: 0, rf_ipca: 0, rf_selic: 0 };
-  if (baseMode === "positions" && positionsTotal > 0) {
-    state.positions.forEach(p => { byCategory[p.category] = (byCategory[p.category] || 0) + (p.value || 0); });
-    CATEGORIES.forEach(k => { byCategory[k] += extra * state.strategy[k].pct / 100; });
+  const byCategory = {rv_int:0, rv_br:0, rf_ipca:0, rf_selic:0};
+  if (baseMode === 'positions' && positionsTotal > 0) {
+    positions.forEach(p => { byCategory[p.category] = (byCategory[p.category]||0) + (p.value||0); });
+    const strat = typeof state !== 'undefined' ? state.strategy : {};
+    ['rv_int','rv_br','rf_ipca','rf_selic'].forEach(k => {
+      byCategory[k] += extra * (strat[k]?.pct||25) / 100;
+    });
   } else {
-    CATEGORIES.forEach(k => { byCategory[k] = totalStrategyValue * state.strategy[k].pct / 100; });
+    const strat = typeof state !== 'undefined' ? state.strategy : {rv_int:{pct:25},rv_br:{pct:25},rf_ipca:{pct:40},rf_selic:{pct:10}};
+    ['rv_int','rv_br','rf_ipca','rf_selic'].forEach(k => {
+      byCategory[k] = totalStrategy * (strat[k]?.pct||25) / 100;
+    });
   }
 
-  let strategyMonthlyGross = 0, strategyMonthlyNet = 0;
-  const rows = CATEGORIES.map(k => {
-    const s = state.strategy[k];
-    const y = yieldsState[k];
-    const alloc = byCategory[k] || 0;
-    const annualGross = alloc * y.yield / 100;
-    const annualNet = annualGross * (1 - y.ir / 100);
-    const monthlyGross = annualGross / 12;
-    const monthlyNet = annualNet / 12;
-    strategyMonthlyGross += monthlyGross;
-    strategyMonthlyNet += monthlyNet;
-    return { k, s, y, alloc, annualGross, annualNet, monthlyGross, monthlyNet };
-  });
+  const yieldsConfig = typeof yieldsState !== 'undefined' ? yieldsState : {
+    rv_int:{yield:8,ir:15}, rv_br:{yield:12,ir:15}, rf_ipca:{yield:11.5,ir:15}, rf_selic:{yield:14.25,ir:15}
+  };
+  const strategyNames = typeof DEFAULT_STRATEGY !== 'undefined' ? DEFAULT_STRATEGY : {
+    rv_int:{name:'RV Internacional',pill:'pill-rv-int'},
+    rv_br:{name:'RV Brasil',pill:'pill-rv-br'},
+    rf_ipca:{name:'RF Tesouro IPCA+',pill:'pill-rf-ipca'},
+    rf_selic:{name:'RF CDB / Selic',pill:'pill-rf-selic'},
+  };
 
-  document.getElementById("rendaTable").innerHTML = `
-    <thead>
-      <tr>
-        <th>Bucket</th><th class="text-right">Alocado</th><th class="text-right">Taxa a.a.</th>
-        <th class="text-right">IR</th><th class="text-right">Mensal Líq.</th><th class="text-right">Anual Líq.</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows.map(r => `
-        <tr>
-          <td><span class="pill ${r.s.pill}">${r.s.name}</span></td>
-          <td class="text-right">${fmtBRL(r.alloc)}</td>
-          <td class="text-right">${fmtNumBR(r.y.yield)}%</td>
-          <td class="text-right">${r.y.ir}%</td>
-          <td class="text-right text-white font-semibold">${fmtBRL(r.monthlyNet)}</td>
-          <td class="text-right">${fmtBRL(r.annualNet)}</td>
-        </tr>
-      `).join("")}
-      <tr>
-        <td class="text-right font-bold text-neutral-500" colspan="4">Subtotal Estratégica</td>
-        <td class="text-right text-white font-bold">${fmtBRL(strategyMonthlyNet)}</td>
-        <td class="text-right font-bold">${fmtBRL(strategyMonthlyNet * 12)}</td>
-      </tr>
-    </tbody>
-  `;
+  let stratMonthlyGross = 0, stratMonthlyNet = 0;
+  const cats = ['rv_int','rv_br','rf_ipca','rf_selic'];
+  const rows = cats.map(k => {
+    const alloc = byCategory[k]||0;
+    const y = yieldsConfig[k]||{yield:10,ir:15};
+    const gross = alloc * y.yield/100/12;
+    const net = gross * (1 - y.ir/100);
+    stratMonthlyGross += gross;
+    stratMonthlyNet += net;
+    const s = strategyNames[k]||{};
+    return `<tr>
+      <td><span class="pill ${s.pill||''}">${s.name||k}</span></td>
+      <td class="text-right">R$ ${fmtNumBR(alloc)}</td>
+      <td class="text-right">${fmtNumBR(y.yield)}%</td>
+      <td class="text-right">${y.ir}%</td>
+      <td class="text-right text-white font-semibold">R$ ${fmtNumBR(net)}</td>
+      <td class="text-right">R$ ${fmtNumBR(net*12)}</td>
+    </tr>`;
+  }).join('');
 
-  // ==== TOTAIS CONSOLIDADOS ====
-  const wiseMensalBrl = (typeof getWiseTotalMensalLiq === "function") ? getWiseTotalMensalLiq() : 0;
-  const wiseBrl = (typeof getWiseTotalBrl === "function") ? getWiseTotalBrl() : 0;
-  const totalMonthlyGross = strategyMonthlyGross + reservaMonthlyGross + wiseMensalBrl;
-  const totalMonthlyNet = strategyMonthlyNet + reservaMonthlyNet + wiseMensalBrl;
-  const totalPatrimony = totalStrategyValue + (reservaState.enabled ? reservaState.valor : 0) + wiseBrl;
-  const yieldLiq = totalPatrimony > 0 ? (totalMonthlyNet * 12 / totalPatrimony * 100) : 0;
+  const rendaTableEl = document.getElementById('rendaTable');
+  if (rendaTableEl) {
+    rendaTableEl.innerHTML = `<thead><tr><th>Bucket</th><th class="text-right">Alocado</th><th class="text-right">Taxa a.a.</th><th class="text-right">IR</th><th class="text-right">Mensal Líq.</th><th class="text-right">Anual Líq.</th></tr></thead><tbody>${rows}<tr><td colspan="4" class="text-right text-neutral-500 font-bold">Subtotal</td><td class="text-right text-white font-bold">R$ ${fmtNumBR(stratMonthlyNet)}</td><td class="text-right font-bold">R$ ${fmtNumBR(stratMonthlyNet*12)}</td></tr></tbody>`;
+  }
 
-  document.getElementById("rendaMensalBruta").textContent = fmtBRL(totalMonthlyGross);
-  document.getElementById("rendaMensalLiq").textContent = fmtBRL(totalMonthlyNet);
-  document.getElementById("rendaAnualLiq").textContent = fmtBRL(totalMonthlyNet * 12);
-  document.getElementById("rendaYieldLiq").textContent = `${fmtNumBR(yieldLiq)}%`;
+  // Totais consolidados
+  const interMensalBrl = interEnabled ? interCalc.mensal : 0;
+  const usdMensalBrl = wiseUsdEnabled ? wiseUsdMensalBrl : 0;
+  const eurMensalBrl = wiseEurEnabled ? wiseEurMensalBrl : 0;
+  const totalMensalLiq = interMensalBrl + usdMensalBrl + eurMensalBrl + stratMonthlyNet;
+  const totalMensalBruto = (interEnabled ? interCalc.bruto : 0)
+    + (wiseUsdEnabled ? wiseUsdMensalUsd * wiseUsdRate : 0)
+    + (wiseEurEnabled ? wiseEurMensalEur * wiseEurRate : 0)
+    + stratMonthlyGross;
 
-  saveReserva();
-  if (typeof renderChart === "function") renderChart();
+  const interBrl = interEnabled ? interSaldo : 0;
+  const usdBrl = wiseUsdEnabled ? wiseUsdSaldoBrl : 0;
+  const eurBrl = wiseEurEnabled ? wiseEurSaldoBrl : 0;
+  const totalPatrimony = interBrl + usdBrl + eurBrl + totalStrategy;
+  const yieldLiq = totalPatrimony > 0 ? (totalMensalLiq*12/totalPatrimony*100) : 0;
+
+  const setEl = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  setEl('rendaMensalBruta', `R$ ${fmtNumBR(totalMensalBruto)}`);
+  setEl('rendaMensalLiq', `R$ ${fmtNumBR(totalMensalLiq)}`);
+  setEl('rendaAnualLiq', `R$ ${fmtNumBR(totalMensalLiq*12)}`);
+  setEl('rendaYieldLiq', `${fmtNumBR(yieldLiq)}%`);
+
+  // Salvar valores Wise no localStorage
+  try {
+    localStorage.setItem('fin_trader_sim_v3', JSON.stringify({
+      interSaldo: document.getElementById('interSaldo')?.value,
+      interJaRendeu: document.getElementById('interJaRendeu')?.value,
+      interTaxa: document.getElementById('interTaxa')?.value,
+      interIR: document.getElementById('interIR')?.value,
+      interEnabled,
+      wiseUsdSaldo: document.getElementById('wiseUsdSaldo')?.value,
+      wiseUsdRendeu: document.getElementById('wiseUsdRendeu')?.value,
+      wiseUsdTaxa: document.getElementById('wiseUsdTaxa')?.value,
+      wiseUsdRate: document.getElementById('wiseUsdRate')?.value,
+      wiseUsdEnabled,
+      wiseEurSaldo: document.getElementById('wiseEurSaldo')?.value,
+      wiseEurRendeu: document.getElementById('wiseEurRendeu')?.value,
+      wiseEurTaxa: document.getElementById('wiseEurTaxa')?.value,
+      wiseEurRate: document.getElementById('wiseEurRate')?.value,
+      wiseEurAporte: document.getElementById('wiseEurAporte')?.value,
+      wiseEurAporteData: document.getElementById('wiseEurAporteData')?.value,
+      wiseEurEnabled,
+    }));
+  } catch(e) {}
 }
 
-// Listeners: reserva + carteira estratégica
-["reservaEnabled", "reservaNome", "reservaValor", "reservaTaxa", "reservaIR", "reservaInicio"].forEach(id => {
+function loadSimulador() {
+  try {
+    const raw = localStorage.getItem('fin_trader_sim_v3');
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    const setVal = (id,v) => { const el=document.getElementById(id); if(el&&v!=null) el.value=v; };
+    const setChk = (id,v) => { const el=document.getElementById(id); if(el&&v!=null) el.checked=v; };
+    setVal('interSaldo', d.interSaldo); setVal('interJaRendeu', d.interJaRendeu);
+    setVal('interTaxa', d.interTaxa); setVal('interIR', d.interIR);
+    setChk('interEnabled', d.interEnabled);
+    setVal('wiseUsdSaldo', d.wiseUsdSaldo); setVal('wiseUsdRendeu', d.wiseUsdRendeu);
+    setVal('wiseUsdTaxa', d.wiseUsdTaxa); setVal('wiseUsdRate', d.wiseUsdRate);
+    setChk('wiseUsdEnabled', d.wiseUsdEnabled);
+    setVal('wiseEurSaldo', d.wiseEurSaldo); setVal('wiseEurRendeu', d.wiseEurRendeu);
+    setVal('wiseEurTaxa', d.wiseEurTaxa); setVal('wiseEurRate', d.wiseEurRate);
+    setVal('wiseEurAporte', d.wiseEurAporte); setVal('wiseEurAporteData', d.wiseEurAporteData);
+    setChk('wiseEurEnabled', d.wiseEurEnabled);
+  } catch(e) { console.warn('loadSimulador:', e); }
+}
+
+// Listeners para todos os inputs da seção 6
+['interEnabled','interSaldo','interJaRendeu','interTaxa','interIR',
+ 'wiseUsdEnabled','wiseUsdSaldo','wiseUsdRendeu','wiseUsdTaxa','wiseUsdRate',
+ 'wiseEurEnabled','wiseEurSaldo','wiseEurRendeu','wiseEurTaxa','wiseEurRate',
+ 'wiseEurAporte','wiseEurAporteData',
+ 'rendaBase','rendaBaseValor','rendaAporteExtra'].forEach(id => {
   const el = document.getElementById(id);
-  const evt = el.type === "checkbox" ? "change" : "input";
+  if (!el) return;
+  const evt = (el.type === 'checkbox' || el.tagName === 'SELECT') ? 'change' : 'input';
   el.addEventListener(evt, renderRenda);
 });
-document.getElementById("rendaBase").addEventListener("change", renderRenda);
-document.getElementById("rendaBaseValor").addEventListener("input", renderRenda);
-document.getElementById("rendaBaseValor").addEventListener("click", () => {
-  // Se o campo está desabilitado, troca pra Valor manual e libera pra editar
-  if (document.getElementById("rendaBaseValor").disabled) {
-    document.getElementById("rendaBase").value = "manual";
+
+// Click no valor base travado -> troca pra manual
+const rendaBaseValorEl = document.getElementById('rendaBaseValor');
+if (rendaBaseValorEl) {
+  rendaBaseValorEl.addEventListener('click', () => {
+    if (rendaBaseValorEl.disabled) {
+      document.getElementById('rendaBase').value = 'manual';
+      renderRenda();
+      rendaBaseValorEl.focus();
+      rendaBaseValorEl.select();
+    }
+  });
+}
+
+// Botão editar taxas
+const editYieldsBtn = document.getElementById('editYields');
+if (editYieldsBtn) {
+  editYieldsBtn.addEventListener('click', () => {
+    const cats2 = ['rv_int','rv_br','rf_ipca','rf_selic'];
+    const ys = typeof yieldsState !== 'undefined' ? yieldsState : {};
+    const current = cats2.map(k => fmtNumBR(ys[k]?.yield||10)).join(', ');
+    const input = prompt(`Taxas anuais brutas (RV Int, RV BR, RF IPCA+, RF Selic):\n\nAtual: ${current}`, current);
+    if (!input) return;
+    const parts = input.split(',').map(s => parseNumBR(s.trim()));
+    if (parts.length !== 4 || parts.some(n => isNaN(n))) return alert('Formato inválido.');
+    if (typeof yieldsState !== 'undefined') cats2.forEach((k,i) => yieldsState[k].yield = parts[i]);
     renderRenda();
-    document.getElementById("rendaBaseValor").focus();
-    document.getElementById("rendaBaseValor").select();
-  }
-});
-document.getElementById("rendaAporteExtra").addEventListener("input", renderRenda);
+  });
+}
 
-document.getElementById("editYields").addEventListener("click", () => {
-  const current = CATEGORIES.map(k => fmtNumBR(yieldsState[k].yield)).join(", ");
-  const input = prompt(
-    `Ajuste as 4 taxas anuais brutas (%) separadas por vírgula:\nOrdem: RV Int, RV BR, RF IPCA+, RF Selic\n\nAtual: ${current}`,
-    current
-  );
-  if (!input) return;
-  const parts = input.split(",").map(s => parseNumBR(s.trim()));
-  if (parts.length !== 4 || parts.some(n => isNaN(n) || n < 0)) return alert("Formato inválido.");
-  CATEGORIES.forEach((k, i) => yieldsState[k].yield = parts[i]);
-  saveYields();
-  renderRenda();
-});
-
-const notesArea = document.getElementById("notesArea");
-const notesStatus = document.getElementById("notesStatus");
-notesArea.value = state.notes;
-let notesTimer = null;
-notesArea.addEventListener("input", () => {
-  notesStatus.textContent = "Salvando...";
-  state.notes = notesArea.value;
-  clearTimeout(notesTimer);
-  notesTimer = setTimeout(() => { save(); notesStatus.textContent = "Salvo"; }, 400);
-});
+loadSimulador();
+renderRenda();
 
 // ============ EVOLUÇÃO DA CARTEIRA (GRÁFICO) ============
 let chartTab = "investido";
