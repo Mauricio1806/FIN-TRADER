@@ -129,6 +129,93 @@ function setupHistoryListeners() {
 setupHistoryListeners();
 refreshHistories();
 
+
+// ============ COTAÇÕES AO VIVO ============
+async function fetchQuotes() {
+  const btn = document.getElementById('refreshQuotes');
+  const timeEl = document.getElementById('quoteTime');
+  if (btn) btn.textContent = '…';
+  try {
+    // USD/BRL via BCB
+    const r = await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.1/dados/ultimos/1?formato=json');
+    if (r.ok) {
+      const d = await r.json();
+      const usd = parseFloat(d[0].valor.replace(',','.'));
+      const usdEl = document.getElementById('liveusd');
+      if (usdEl) usdEl.textContent = usd.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4});
+      window._liveUsd = usd;
+    }
+    // EUR/BRL via Yahoo Finance
+    try {
+      const re = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/EURBRL=X?interval=1d&range=1d');
+      if (re.ok) {
+        const de = await re.json();
+        const eur = de.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (eur) {
+          const eurEl = document.getElementById('liveeur');
+          if (eurEl) eurEl.textContent = eur.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4});
+          window._liveEur = eur;
+        }
+      }
+    } catch(_) {}
+    if (timeEl) timeEl.textContent = new Date().toLocaleTimeString('pt-BR');
+  } catch(e) { console.warn('fetchQuotes:', e); }
+  if (btn) btn.textContent = '↻ Atualizar cotações';
+}
+
+document.getElementById('refreshQuotes')?.addEventListener('click', fetchQuotes);
+
+document.getElementById('applyQuotes')?.addEventListener('click', () => {
+  const usd = window._liveUsd;
+  const eur = window._liveEur;
+  if (usd) {
+    const el = document.getElementById('wiseUsdRate');
+    if (el) { el.value = usd.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4}); }
+  }
+  if (eur) {
+    const el = document.getElementById('wiseEurRate');
+    if (el) { el.value = eur.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4}); }
+  }
+  // Limpar localStorage antigo que pode ter cotações defasadas
+  try {
+    const saved = JSON.parse(localStorage.getItem('fin_trader_sim_v3') || '{}');
+    if (usd) saved.wiseUsdRate = usd.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4});
+    if (eur) saved.wiseEurRate = eur.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4});
+    localStorage.setItem('fin_trader_sim_v3', JSON.stringify(saved));
+  } catch(e) {}
+  renderRenda();
+});
+
+// Na inicialização: forçar reset do localStorage se tiver cotações antigas (5,70/6,30)
+(function checkAndResetOldRates() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('fin_trader_sim_v3') || '{}');
+    let changed = false;
+    // Se EUR saldo ainda estiver com 1014 (antigo), atualiza pra 3014
+    if (saved.wiseEurSaldo && (saved.wiseEurSaldo === '1.014,21' || saved.wiseEurSaldo === '1014,21')) {
+      saved.wiseEurSaldo = '3.014,21';
+      saved.wiseEurRendeu = '4,97';
+      changed = true;
+    }
+    // Se cotações antigas (5,70 e 6,30), atualiza
+    if (saved.wiseUsdRate === '5,70' || saved.wiseUsdRate === '5.70') {
+      saved.wiseUsdRate = '5,0777';
+      changed = true;
+    }
+    if (saved.wiseEurRate === '6,30' || saved.wiseEurRate === '6.30') {
+      saved.wiseEurRate = '5,7971';
+      changed = true;
+    }
+    if (changed) {
+      localStorage.setItem('fin_trader_sim_v3', JSON.stringify(saved));
+      console.log('Valores desatualizados corrigidos no localStorage');
+    }
+  } catch(e) {}
+})();
+
+// Buscar cotações automaticamente ao carregar
+fetchQuotes();
+
 </script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
@@ -446,6 +533,22 @@ refreshHistories();
         </div>
       </div>
 
+      <!-- BARRA DE COTAÇÕES -->
+      <div class="border border-[#1f1f1f] rounded p-2 bg-[#0a0a0a] flex items-center gap-3 flex-wrap">
+        <span class="text-xs text-neutral-500 font-semibold">Cotações ao vivo:</span>
+        <div class="flex items-center gap-1">
+          <span class="text-xs text-neutral-400">USD/BRL</span>
+          <span id="liveusd" class="text-xs font-bold text-white">5,0777</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <span class="text-xs text-neutral-400">EUR/BRL</span>
+          <span id="liveeur" class="text-xs font-bold text-white">5,7971</span>
+        </div>
+        <button id="refreshQuotes" class="secondary text-xs" style="padding:0.2rem 0.6rem;">↻ Atualizar cotações</button>
+        <span id="quoteTime" class="text-xs text-neutral-600">22/07/2026</span>
+        <button id="applyQuotes" class="text-xs" style="padding:0.2rem 0.6rem;">Aplicar nos campos</button>
+      </div>
+
       <!-- BLOCO B: WISE USD -->
       <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-3">
         <div class="flex items-center justify-between flex-wrap gap-2">
@@ -473,7 +576,7 @@ refreshHistories();
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">USD/BRL</label>
-            <input type="text" inputmode="decimal" id="wiseUsdRate" value="5,70" />
+            <input type="text" inputmode="decimal" id="wiseUsdRate" value="5,0777" />
           </div>
         </div>
         <div id="wiseUsdResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
@@ -515,11 +618,11 @@ refreshHistories();
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Saldo atual (EUR)</label>
-            <input type="text" inputmode="decimal" id="wiseEurSaldo" value="1.014,21" />
+            <input type="text" inputmode="decimal" id="wiseEurSaldo" value="3.014,21" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Rendeu este mês (EUR)</label>
-            <input type="text" inputmode="decimal" id="wiseEurRendeu" value="0,97" />
+            <input type="text" inputmode="decimal" id="wiseEurRendeu" value="4,97" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. (%)</label>
@@ -527,7 +630,7 @@ refreshHistories();
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">EUR/BRL</label>
-            <input type="text" inputmode="decimal" id="wiseEurRate" value="6,30" />
+            <input type="text" inputmode="decimal" id="wiseEurRate" value="5,7971" />
           </div>
         </div>
         <div id="wiseEurResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
