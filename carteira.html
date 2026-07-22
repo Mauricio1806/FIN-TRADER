@@ -5,285 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0a0a" />
 <title>FIN-TRADER — Carteira</title>
-<script src="https://cdn.tailwindcss.com">
-// ============ HISTÓRICO DE SALDO / APORTES ============
-// Cada bloco (inter, usd, eur) tem seu próprio array de entradas
-
-function loadHistories() {
-  try {
-    const d = JSON.parse(localStorage.getItem('fin_trader_histories_v1') || '{}');
-    return {
-      inter: d.inter || [],
-      usd: d.usd || [],
-      eur: d.eur || [],
-    };
-  } catch(e) { return {inter:[], usd:[], eur:[]}; }
-}
-function saveHistories(h) {
-  try { localStorage.setItem('fin_trader_histories_v1', JSON.stringify(h)); } catch(e) {}
-}
-
-function renderHistory(entries, containerId, moeda) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  if (!entries.length) { el.innerHTML = ''; return; }
-  const rows = entries.slice().reverse().slice(0,8).map((e, idx) => {
-    const realIdx = entries.length - 1 - idx;
-    const aporte = e.aporte ? ` <span class="text-yellow-400">+${e.aporte} aporte</span>` : '';
-    const rendeu = e.rendeu ? ` <span class="text-green-300">rendeu ${e.rendeu}</span>` : '';
-    return `<div class="flex items-center gap-3 bg-[#0a0a0a] rounded px-3 py-1 text-xs flex-wrap">
-      <span class="text-neutral-500">${e.data}</span>
-      <span class="text-white font-semibold">${moeda} ${e.saldo}</span>
-      ${rendeu}${aporte}
-      <button class="ml-auto danger text-xs" onclick="removeHistEntry('${containerId}',${realIdx})" style="padding:0.1rem 0.4rem;">×</button>
-    </div>`;
-  }).join('');
-  el.innerHTML = rows;
-}
-
-function removeHistEntry(containerId, idx) {
-  const h = loadHistories();
-  const key = containerId === 'interHistory' ? 'inter' : containerId === 'usdHistory' ? 'usd' : 'eur';
-  h[key].splice(idx, 1);
-  saveHistories(h);
-  refreshHistories();
-}
-
-function refreshHistories() {
-  const h = loadHistories();
-  renderHistory(h.inter, 'interHistory', 'R$');
-  renderHistory(h.usd, 'usdHistory', '$');
-  renderHistory(h.eur, 'eurHistory', '€');
-}
-
-function setupHistoryListeners() {
-  const today = new Date().toISOString().slice(0,10);
-
-  // --- INTER ---
-  const interAddBtn = document.getElementById('interAddEntry');
-  const interForm = document.getElementById('interEntryForm');
-  if (interAddBtn) interAddBtn.addEventListener('click', () => interForm.classList.toggle('hidden'));
-  document.getElementById('interCancelEntry')?.addEventListener('click', () => interForm.classList.add('hidden'));
-  document.getElementById('interSaveEntry')?.addEventListener('click', () => {
-    const saldo = document.getElementById('interNewSaldo').value.trim();
-    const rendeu = document.getElementById('interNewRendeu').value.trim();
-    if (!saldo) return alert('Informe o novo saldo.');
-    const h = loadHistories();
-    h.inter.push({ data: today, saldo, rendeu });
-    saveHistories(h);
-    // Atualizar campos principais
-    document.getElementById('interSaldo').value = saldo;
-    if (rendeu) document.getElementById('interJaRendeu').value = rendeu;
-    interForm.classList.add('hidden');
-    document.getElementById('interNewSaldo').value = '';
-    document.getElementById('interNewRendeu').value = '';
-    refreshHistories();
-    renderRenda();
-  });
-
-  // --- USD ---
-  const usdAddBtn = document.getElementById('usdAddEntry');
-  const usdForm = document.getElementById('usdEntryForm');
-  if (usdAddBtn) usdAddBtn.addEventListener('click', () => usdForm.classList.toggle('hidden'));
-  document.getElementById('usdCancelEntry')?.addEventListener('click', () => usdForm.classList.add('hidden'));
-  document.getElementById('usdSaveEntry')?.addEventListener('click', () => {
-    const saldo = document.getElementById('usdNewSaldo').value.trim();
-    const rendeu = document.getElementById('usdNewRendeu').value.trim();
-    if (!saldo) return alert('Informe o novo saldo.');
-    const h = loadHistories();
-    h.usd.push({ data: today, saldo, rendeu });
-    saveHistories(h);
-    document.getElementById('wiseUsdSaldo').value = saldo;
-    if (rendeu) document.getElementById('wiseUsdRendeu').value = rendeu;
-    usdForm.classList.add('hidden');
-    document.getElementById('usdNewSaldo').value = '';
-    document.getElementById('usdNewRendeu').value = '';
-    refreshHistories();
-    renderRenda();
-  });
-
-  // --- EUR ---
-  const eurAddBtn = document.getElementById('eurAddEntry');
-  const eurForm = document.getElementById('eurEntryForm');
-  if (eurAddBtn) eurAddBtn.addEventListener('click', () => eurForm.classList.toggle('hidden'));
-  document.getElementById('eurCancelEntry')?.addEventListener('click', () => eurForm.classList.add('hidden'));
-  document.getElementById('eurSaveEntry')?.addEventListener('click', () => {
-    const saldo = document.getElementById('eurNewSaldo').value.trim();
-    const rendeu = document.getElementById('eurNewRendeu').value.trim();
-    const aporte = document.getElementById('eurNewAporte').value.trim();
-    if (!saldo) return alert('Informe o novo saldo.');
-    const h = loadHistories();
-    h.eur.push({ data: today, saldo, rendeu, aporte });
-    saveHistories(h);
-    document.getElementById('wiseEurSaldo').value = saldo;
-    if (rendeu) document.getElementById('wiseEurRendeu').value = rendeu;
-    eurForm.classList.add('hidden');
-    document.getElementById('eurNewSaldo').value = '';
-    document.getElementById('eurNewRendeu').value = '';
-    document.getElementById('eurNewAporte').value = '';
-    refreshHistories();
-    renderRenda();
-  });
-}
-
-setupHistoryListeners();
-refreshHistories();
-
-
-// ============ COTAÇÕES AO VIVO ============
-async function fetchQuotes() {
-  const btn = document.getElementById('refreshQuotes');
-  const timeEl = document.getElementById('quoteTime');
-  if (btn) btn.textContent = '…';
-  try {
-    // USD/BRL via BCB
-    const r = await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.1/dados/ultimos/1?formato=json');
-    if (r.ok) {
-      const d = await r.json();
-      const usd = parseFloat(d[0].valor.replace(',','.'));
-      const usdEl = document.getElementById('liveusd');
-      if (usdEl) usdEl.textContent = usd.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4});
-      window._liveUsd = usd;
-    }
-    // EUR/BRL via Yahoo Finance
-    try {
-      const re = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/EURBRL=X?interval=1d&range=1d');
-      if (re.ok) {
-        const de = await re.json();
-        const eur = de.chart?.result?.[0]?.meta?.regularMarketPrice;
-        if (eur) {
-          const eurEl = document.getElementById('liveeur');
-          if (eurEl) eurEl.textContent = eur.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4});
-          window._liveEur = eur;
-        }
-      }
-    } catch(_) {}
-    if (timeEl) timeEl.textContent = new Date().toLocaleTimeString('pt-BR');
-  } catch(e) { console.warn('fetchQuotes:', e); }
-  if (btn) btn.textContent = '↻ Atualizar cotações';
-}
-
-document.getElementById('refreshQuotes')?.addEventListener('click', fetchQuotes);
-
-document.getElementById('applyQuotes')?.addEventListener('click', () => {
-  const usd = window._liveUsd;
-  const eur = window._liveEur;
-  if (usd) {
-    const el = document.getElementById('wiseUsdRate');
-    if (el) { el.value = usd.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4}); }
-  }
-  if (eur) {
-    const el = document.getElementById('wiseEurRate');
-    if (el) { el.value = eur.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4}); }
-  }
-  // Limpar localStorage antigo que pode ter cotações defasadas
-  try {
-    const saved = JSON.parse(localStorage.getItem('fin_trader_sim_v3') || '{}');
-    if (usd) saved.wiseUsdRate = usd.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4});
-    if (eur) saved.wiseEurRate = eur.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4});
-    localStorage.setItem('fin_trader_sim_v3', JSON.stringify(saved));
-  } catch(e) {}
-  renderRenda();
-});
-
-
-
-// Buscar cotações automaticamente ao carregar
-fetchQuotes();
-
-
-// ============ CARD DE RESUMO PATRIMONIAL ============
-// VERSÃO DO HTML que veio no deploy — usada pra detectar localStorage desatualizado
-const DEPLOY_VERSION = '20260722_v3';
-
-// Limpa localStorage se versão do deploy for mais nova
-(function autoCleanStorage() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('fin_trader_sim_v3') || '{}');
-    if (saved._deployVersion !== DEPLOY_VERSION) {
-      // Limpa apenas as cotações, preserva saldos e histórico que o usuário editou
-      delete saved.wiseUsdRate;
-      delete saved.wiseEurRate;
-      saved._deployVersion = DEPLOY_VERSION;
-      localStorage.setItem('fin_trader_sim_v3', JSON.stringify(saved));
-    }
-  } catch(e) {}
-})();
-
-function renderSummary() {
-  const get = (id) => parseNumBR(document.getElementById(id)?.value || '0');
-  const chk = (id) => document.getElementById(id)?.checked !== false;
-
-  const interSaldo   = get('interSaldo');
-  const interTaxa    = get('interTaxa');
-  const interIR      = get('interIR');
-  const interEnabled = chk('interEnabled');
-
-  const usdSaldo   = get('wiseUsdSaldo');
-  const usdRendeu  = get('wiseUsdRendeu');   // campo "rendeu este mês" — preenchido pelo usuário
-  const usdTaxa    = get('wiseUsdTaxa');
-  const usdRate    = get('wiseUsdRate');
-  const usdEnabled = chk('wiseUsdEnabled');
-
-  const eurSaldo   = get('wiseEurSaldo');
-  const eurRendeu  = get('wiseEurRendeu');   // campo "rendeu este mês"
-  const eurTaxa    = get('wiseEurTaxa');
-  const eurRate    = get('wiseEurRate');
-  const eurEnabled = chk('wiseEurEnabled');
-
-  // Rendimento mensal ESTIMADO = taxa anual / 12 (mês cheio)
-  const interMensalLiq = interSaldo * interTaxa / 100 / 12 * (1 - interIR / 100);
-  const usdMensalUsd   = usdSaldo * usdTaxa / 100 / 12;
-  const eurMensalEur   = eurSaldo * eurTaxa / 100 / 12;
-
-  // Conversões BRL
-  const usdBrl = usdSaldo * usdRate;
-  const eurBrl = eurSaldo * eurRate;
-  const totalBrl = (interEnabled ? interSaldo : 0)
-                 + (usdEnabled   ? usdBrl     : 0)
-                 + (eurEnabled   ? eurBrl     : 0);
-  const rendaMensalTotal = (interEnabled ? interMensalLiq            : 0)
-                         + (usdEnabled   ? usdMensalUsd * usdRate    : 0)
-                         + (eurEnabled   ? eurMensalEur * eurRate    : 0);
-
-  const brl = (v) => 'R$ ' + fmtNumBR(v);
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-
-  // Card BRL — Inter Porquinho
-  set('sumBrlTotal',   brl(interSaldo));
-  set('sumBrlMes',     '+ ' + brl(interMensalLiq));          // rendimento do mês estimado pela taxa
-  set('sumBrlMensal',  brl(interMensalLiq) + '/mês est.');
-
-  // Card USD — Wise
-  set('sumUsdTotal',   '$ ' + fmtNumBR(usdSaldo));
-  set('sumUsdMes',     '+ $' + fmtNumBR(usdRendeu, 2));      // o que a Wise já mostrou que rendeu
-  set('sumUsdMensal',  '$ ' + fmtNumBR(usdMensalUsd, 2) + '/mês est.');
-  set('sumUsdBrl',     '≈ ' + brl(usdBrl) + ' (@' + fmtNumBR(usdRate, 4) + ')');
-
-  // Card EUR — Wise
-  set('sumEurTotal',   '€ ' + fmtNumBR(eurSaldo));
-  set('sumEurMes',     '+ €' + fmtNumBR(eurRendeu, 2));      // o que a Wise já mostrou que rendeu
-  set('sumEurMensal',  '€ ' + fmtNumBR(eurMensalEur, 2) + '/mês est.');
-  set('sumEurBrl',     '≈ ' + brl(eurBrl) + ' (@' + fmtNumBR(eurRate, 4) + ')');
-
-  // Totais
-  set('sumTotalBrl',     brl(totalBrl));
-  set('sumRendaMensal',  brl(rendaMensalTotal));
-
-  const timeEl = document.getElementById('summaryTime');
-  if (timeEl) timeEl.textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
-}
-
-// Chamar renderSummary sempre que renderRenda for chamado
-const _origRenderRenda2 = renderRenda;
-renderRenda = function() {
-  _origRenderRenda2.apply(this, arguments);
-  renderSummary();
-};
-
-renderSummary();
-
-</script>
+<script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   :root {
@@ -1940,9 +1662,18 @@ function renderRenda() {
   } catch(e) {}
 }
 
+const DEPLOY_VERSION = '20260722_v3';
 function loadSimulador() {
-  // Cotações NUNCA vêm do localStorage — sempre usa o valor atual do HTML
-  // Só carrega checkboxes e campos que o usuário editou manualmente
+  // Limpar cotações antigas do localStorage antes de carregar
+  try {
+    const saved = JSON.parse(localStorage.getItem('fin_trader_sim_v3') || '{}');
+    if (saved._deployVersion !== DEPLOY_VERSION) {
+      delete saved.wiseUsdRate;
+      delete saved.wiseEurRate;
+      saved._deployVersion = DEPLOY_VERSION;
+      localStorage.setItem('fin_trader_sim_v3', JSON.stringify(saved));
+    }
+  } catch(e) {}
   try {
     const raw = localStorage.getItem('fin_trader_sim_v3');
     if (!raw) return;
@@ -2011,6 +1742,7 @@ if (editYieldsBtn) {
 
 loadSimulador();
 renderRenda();
+renderSummary();
 
 // ============ EVOLUÇÃO DA CARTEIRA (GRÁFICO) ============
 let chartTab = "investido";
@@ -3161,6 +2893,268 @@ if (document.readyState === "loading") {
   loadWise();
   renderWise();
 }
+
+
+
+
+// ============ HISTÓRICO DE SALDO / APORTES ============
+// Cada bloco (inter, usd, eur) tem seu próprio array de entradas
+
+function loadHistories() {
+  try {
+    const d = JSON.parse(localStorage.getItem('fin_trader_histories_v1') || '{}');
+    return {
+      inter: d.inter || [],
+      usd: d.usd || [],
+      eur: d.eur || [],
+    };
+  } catch(e) { return {inter:[], usd:[], eur:[]}; }
+}
+function saveHistories(h) {
+  try { localStorage.setItem('fin_trader_histories_v1', JSON.stringify(h)); } catch(e) {}
+}
+
+function renderHistory(entries, containerId, moeda) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!entries.length) { el.innerHTML = ''; return; }
+  const rows = entries.slice().reverse().slice(0,8).map((e, idx) => {
+    const realIdx = entries.length - 1 - idx;
+    const aporte = e.aporte ? ` <span class="text-yellow-400">+${e.aporte} aporte</span>` : '';
+    const rendeu = e.rendeu ? ` <span class="text-green-300">rendeu ${e.rendeu}</span>` : '';
+    return `<div class="flex items-center gap-3 bg-[#0a0a0a] rounded px-3 py-1 text-xs flex-wrap">
+      <span class="text-neutral-500">${e.data}</span>
+      <span class="text-white font-semibold">${moeda} ${e.saldo}</span>
+      ${rendeu}${aporte}
+      <button class="ml-auto danger text-xs" onclick="removeHistEntry('${containerId}',${realIdx})" style="padding:0.1rem 0.4rem;">×</button>
+    </div>`;
+  }).join('');
+  el.innerHTML = rows;
+}
+
+function removeHistEntry(containerId, idx) {
+  const h = loadHistories();
+  const key = containerId === 'interHistory' ? 'inter' : containerId === 'usdHistory' ? 'usd' : 'eur';
+  h[key].splice(idx, 1);
+  saveHistories(h);
+  refreshHistories();
+}
+
+function refreshHistories() {
+  const h = loadHistories();
+  renderHistory(h.inter, 'interHistory', 'R$');
+  renderHistory(h.usd, 'usdHistory', '$');
+  renderHistory(h.eur, 'eurHistory', '€');
+}
+
+function setupHistoryListeners() {
+  const today = new Date().toISOString().slice(0,10);
+
+  // --- INTER ---
+  const interAddBtn = document.getElementById('interAddEntry');
+  const interForm = document.getElementById('interEntryForm');
+  if (interAddBtn) interAddBtn.addEventListener('click', () => interForm.classList.toggle('hidden'));
+  document.getElementById('interCancelEntry')?.addEventListener('click', () => interForm.classList.add('hidden'));
+  document.getElementById('interSaveEntry')?.addEventListener('click', () => {
+    const saldo = document.getElementById('interNewSaldo').value.trim();
+    const rendeu = document.getElementById('interNewRendeu').value.trim();
+    if (!saldo) return alert('Informe o novo saldo.');
+    const h = loadHistories();
+    h.inter.push({ data: today, saldo, rendeu });
+    saveHistories(h);
+    // Atualizar campos principais
+    document.getElementById('interSaldo').value = saldo;
+    if (rendeu) document.getElementById('interJaRendeu').value = rendeu;
+    interForm.classList.add('hidden');
+    document.getElementById('interNewSaldo').value = '';
+    document.getElementById('interNewRendeu').value = '';
+    refreshHistories();
+    renderRenda();
+  });
+
+  // --- USD ---
+  const usdAddBtn = document.getElementById('usdAddEntry');
+  const usdForm = document.getElementById('usdEntryForm');
+  if (usdAddBtn) usdAddBtn.addEventListener('click', () => usdForm.classList.toggle('hidden'));
+  document.getElementById('usdCancelEntry')?.addEventListener('click', () => usdForm.classList.add('hidden'));
+  document.getElementById('usdSaveEntry')?.addEventListener('click', () => {
+    const saldo = document.getElementById('usdNewSaldo').value.trim();
+    const rendeu = document.getElementById('usdNewRendeu').value.trim();
+    if (!saldo) return alert('Informe o novo saldo.');
+    const h = loadHistories();
+    h.usd.push({ data: today, saldo, rendeu });
+    saveHistories(h);
+    document.getElementById('wiseUsdSaldo').value = saldo;
+    if (rendeu) document.getElementById('wiseUsdRendeu').value = rendeu;
+    usdForm.classList.add('hidden');
+    document.getElementById('usdNewSaldo').value = '';
+    document.getElementById('usdNewRendeu').value = '';
+    refreshHistories();
+    renderRenda();
+  });
+
+  // --- EUR ---
+  const eurAddBtn = document.getElementById('eurAddEntry');
+  const eurForm = document.getElementById('eurEntryForm');
+  if (eurAddBtn) eurAddBtn.addEventListener('click', () => eurForm.classList.toggle('hidden'));
+  document.getElementById('eurCancelEntry')?.addEventListener('click', () => eurForm.classList.add('hidden'));
+  document.getElementById('eurSaveEntry')?.addEventListener('click', () => {
+    const saldo = document.getElementById('eurNewSaldo').value.trim();
+    const rendeu = document.getElementById('eurNewRendeu').value.trim();
+    const aporte = document.getElementById('eurNewAporte').value.trim();
+    if (!saldo) return alert('Informe o novo saldo.');
+    const h = loadHistories();
+    h.eur.push({ data: today, saldo, rendeu, aporte });
+    saveHistories(h);
+    document.getElementById('wiseEurSaldo').value = saldo;
+    if (rendeu) document.getElementById('wiseEurRendeu').value = rendeu;
+    eurForm.classList.add('hidden');
+    document.getElementById('eurNewSaldo').value = '';
+    document.getElementById('eurNewRendeu').value = '';
+    document.getElementById('eurNewAporte').value = '';
+    refreshHistories();
+    renderRenda();
+  });
+}
+
+setupHistoryListeners();
+refreshHistories();
+
+
+// ============ COTAÇÕES AO VIVO ============
+async function fetchQuotes() {
+  const btn = document.getElementById('refreshQuotes');
+  const timeEl = document.getElementById('quoteTime');
+  if (btn) btn.textContent = '…';
+  try {
+    // USD/BRL via BCB
+    const r = await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.1/dados/ultimos/1?formato=json');
+    if (r.ok) {
+      const d = await r.json();
+      const usd = parseFloat(d[0].valor.replace(',','.'));
+      const usdEl = document.getElementById('liveusd');
+      if (usdEl) usdEl.textContent = usd.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4});
+      window._liveUsd = usd;
+    }
+    // EUR/BRL via Yahoo Finance
+    try {
+      const re = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/EURBRL=X?interval=1d&range=1d');
+      if (re.ok) {
+        const de = await re.json();
+        const eur = de.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (eur) {
+          const eurEl = document.getElementById('liveeur');
+          if (eurEl) eurEl.textContent = eur.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4});
+          window._liveEur = eur;
+        }
+      }
+    } catch(_) {}
+    if (timeEl) timeEl.textContent = new Date().toLocaleTimeString('pt-BR');
+  } catch(e) { console.warn('fetchQuotes:', e); }
+  if (btn) btn.textContent = '↻ Atualizar cotações';
+}
+
+document.getElementById('refreshQuotes')?.addEventListener('click', fetchQuotes);
+
+document.getElementById('applyQuotes')?.addEventListener('click', () => {
+  const usd = window._liveUsd;
+  const eur = window._liveEur;
+  if (usd) {
+    const el = document.getElementById('wiseUsdRate');
+    if (el) { el.value = usd.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4}); }
+  }
+  if (eur) {
+    const el = document.getElementById('wiseEurRate');
+    if (el) { el.value = eur.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4}); }
+  }
+  // Limpar localStorage antigo que pode ter cotações defasadas
+  try {
+    const saved = JSON.parse(localStorage.getItem('fin_trader_sim_v3') || '{}');
+    if (usd) saved.wiseUsdRate = usd.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4});
+    if (eur) saved.wiseEurRate = eur.toLocaleString('pt-BR', {minimumFractionDigits:4, maximumFractionDigits:4});
+    localStorage.setItem('fin_trader_sim_v3', JSON.stringify(saved));
+  } catch(e) {}
+  renderRenda();
+});
+
+
+
+// Buscar cotações automaticamente ao carregar
+fetchQuotes();
+
+
+// autoCleanStorage movido para dentro do loadSimulador
+
+function renderSummary() {
+  const get = (id) => parseNumBR(document.getElementById(id)?.value || '0');
+  const chk = (id) => document.getElementById(id)?.checked !== false;
+
+  const interSaldo   = get('interSaldo');
+  const interTaxa    = get('interTaxa');
+  const interIR      = get('interIR');
+  const interEnabled = chk('interEnabled');
+
+  const usdSaldo   = get('wiseUsdSaldo');
+  const usdRendeu  = get('wiseUsdRendeu');   // campo "rendeu este mês" — preenchido pelo usuário
+  const usdTaxa    = get('wiseUsdTaxa');
+  const usdRate    = get('wiseUsdRate');
+  const usdEnabled = chk('wiseUsdEnabled');
+
+  const eurSaldo   = get('wiseEurSaldo');
+  const eurRendeu  = get('wiseEurRendeu');   // campo "rendeu este mês"
+  const eurTaxa    = get('wiseEurTaxa');
+  const eurRate    = get('wiseEurRate');
+  const eurEnabled = chk('wiseEurEnabled');
+
+  // Rendimento mensal ESTIMADO = taxa anual / 12 (mês cheio)
+  const interMensalLiq = interSaldo * interTaxa / 100 / 12 * (1 - interIR / 100);
+  const usdMensalUsd   = usdSaldo * usdTaxa / 100 / 12;
+  const eurMensalEur   = eurSaldo * eurTaxa / 100 / 12;
+
+  // Conversões BRL
+  const usdBrl = usdSaldo * usdRate;
+  const eurBrl = eurSaldo * eurRate;
+  const totalBrl = (interEnabled ? interSaldo : 0)
+                 + (usdEnabled   ? usdBrl     : 0)
+                 + (eurEnabled   ? eurBrl     : 0);
+  const rendaMensalTotal = (interEnabled ? interMensalLiq            : 0)
+                         + (usdEnabled   ? usdMensalUsd * usdRate    : 0)
+                         + (eurEnabled   ? eurMensalEur * eurRate    : 0);
+
+  const brl = (v) => 'R$ ' + fmtNumBR(v);
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+  // Card BRL — Inter Porquinho
+  set('sumBrlTotal',   brl(interSaldo));
+  set('sumBrlMes',     '+ ' + brl(interMensalLiq));          // rendimento do mês estimado pela taxa
+  set('sumBrlMensal',  brl(interMensalLiq) + '/mês est.');
+
+  // Card USD — Wise
+  set('sumUsdTotal',   '$ ' + fmtNumBR(usdSaldo));
+  set('sumUsdMes',     '+ $' + fmtNumBR(usdRendeu, 2));      // o que a Wise já mostrou que rendeu
+  set('sumUsdMensal',  '$ ' + fmtNumBR(usdMensalUsd, 2) + '/mês est.');
+  set('sumUsdBrl',     '≈ ' + brl(usdBrl) + ' (@' + fmtNumBR(usdRate, 4) + ')');
+
+  // Card EUR — Wise
+  set('sumEurTotal',   '€ ' + fmtNumBR(eurSaldo));
+  set('sumEurMes',     '+ €' + fmtNumBR(eurRendeu, 2));      // o que a Wise já mostrou que rendeu
+  set('sumEurMensal',  '€ ' + fmtNumBR(eurMensalEur, 2) + '/mês est.');
+  set('sumEurBrl',     '≈ ' + brl(eurBrl) + ' (@' + fmtNumBR(eurRate, 4) + ')');
+
+  // Totais
+  set('sumTotalBrl',     brl(totalBrl));
+  set('sumRendaMensal',  brl(rendaMensalTotal));
+
+  const timeEl = document.getElementById('summaryTime');
+  if (timeEl) timeEl.textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+}
+
+// renderSummary é chamada automaticamente via wrapper no renderRenda
+const _origRenderRenda2 = renderRenda;
+renderRenda = function() {
+  _origRenderRenda2.apply(this, arguments);
+  renderSummary();
+};
 
 
 </script>
