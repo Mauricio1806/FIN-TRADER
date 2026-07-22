@@ -5,7 +5,131 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0a0a" />
 <title>FIN-TRADER — Carteira</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com">
+// ============ HISTÓRICO DE SALDO / APORTES ============
+// Cada bloco (inter, usd, eur) tem seu próprio array de entradas
+
+function loadHistories() {
+  try {
+    const d = JSON.parse(localStorage.getItem('fin_trader_histories_v1') || '{}');
+    return {
+      inter: d.inter || [],
+      usd: d.usd || [],
+      eur: d.eur || [],
+    };
+  } catch(e) { return {inter:[], usd:[], eur:[]}; }
+}
+function saveHistories(h) {
+  try { localStorage.setItem('fin_trader_histories_v1', JSON.stringify(h)); } catch(e) {}
+}
+
+function renderHistory(entries, containerId, moeda) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!entries.length) { el.innerHTML = ''; return; }
+  const rows = entries.slice().reverse().slice(0,8).map((e, idx) => {
+    const realIdx = entries.length - 1 - idx;
+    const aporte = e.aporte ? ` <span class="text-yellow-400">+${e.aporte} aporte</span>` : '';
+    const rendeu = e.rendeu ? ` <span class="text-green-300">rendeu ${e.rendeu}</span>` : '';
+    return `<div class="flex items-center gap-3 bg-[#0a0a0a] rounded px-3 py-1 text-xs flex-wrap">
+      <span class="text-neutral-500">${e.data}</span>
+      <span class="text-white font-semibold">${moeda} ${e.saldo}</span>
+      ${rendeu}${aporte}
+      <button class="ml-auto danger text-xs" onclick="removeHistEntry('${containerId}',${realIdx})" style="padding:0.1rem 0.4rem;">×</button>
+    </div>`;
+  }).join('');
+  el.innerHTML = rows;
+}
+
+function removeHistEntry(containerId, idx) {
+  const h = loadHistories();
+  const key = containerId === 'interHistory' ? 'inter' : containerId === 'usdHistory' ? 'usd' : 'eur';
+  h[key].splice(idx, 1);
+  saveHistories(h);
+  refreshHistories();
+}
+
+function refreshHistories() {
+  const h = loadHistories();
+  renderHistory(h.inter, 'interHistory', 'R$');
+  renderHistory(h.usd, 'usdHistory', '$');
+  renderHistory(h.eur, 'eurHistory', '€');
+}
+
+function setupHistoryListeners() {
+  const today = new Date().toISOString().slice(0,10);
+
+  // --- INTER ---
+  const interAddBtn = document.getElementById('interAddEntry');
+  const interForm = document.getElementById('interEntryForm');
+  if (interAddBtn) interAddBtn.addEventListener('click', () => interForm.classList.toggle('hidden'));
+  document.getElementById('interCancelEntry')?.addEventListener('click', () => interForm.classList.add('hidden'));
+  document.getElementById('interSaveEntry')?.addEventListener('click', () => {
+    const saldo = document.getElementById('interNewSaldo').value.trim();
+    const rendeu = document.getElementById('interNewRendeu').value.trim();
+    if (!saldo) return alert('Informe o novo saldo.');
+    const h = loadHistories();
+    h.inter.push({ data: today, saldo, rendeu });
+    saveHistories(h);
+    // Atualizar campos principais
+    document.getElementById('interSaldo').value = saldo;
+    if (rendeu) document.getElementById('interJaRendeu').value = rendeu;
+    interForm.classList.add('hidden');
+    document.getElementById('interNewSaldo').value = '';
+    document.getElementById('interNewRendeu').value = '';
+    refreshHistories();
+    renderRenda();
+  });
+
+  // --- USD ---
+  const usdAddBtn = document.getElementById('usdAddEntry');
+  const usdForm = document.getElementById('usdEntryForm');
+  if (usdAddBtn) usdAddBtn.addEventListener('click', () => usdForm.classList.toggle('hidden'));
+  document.getElementById('usdCancelEntry')?.addEventListener('click', () => usdForm.classList.add('hidden'));
+  document.getElementById('usdSaveEntry')?.addEventListener('click', () => {
+    const saldo = document.getElementById('usdNewSaldo').value.trim();
+    const rendeu = document.getElementById('usdNewRendeu').value.trim();
+    if (!saldo) return alert('Informe o novo saldo.');
+    const h = loadHistories();
+    h.usd.push({ data: today, saldo, rendeu });
+    saveHistories(h);
+    document.getElementById('wiseUsdSaldo').value = saldo;
+    if (rendeu) document.getElementById('wiseUsdRendeu').value = rendeu;
+    usdForm.classList.add('hidden');
+    document.getElementById('usdNewSaldo').value = '';
+    document.getElementById('usdNewRendeu').value = '';
+    refreshHistories();
+    renderRenda();
+  });
+
+  // --- EUR ---
+  const eurAddBtn = document.getElementById('eurAddEntry');
+  const eurForm = document.getElementById('eurEntryForm');
+  if (eurAddBtn) eurAddBtn.addEventListener('click', () => eurForm.classList.toggle('hidden'));
+  document.getElementById('eurCancelEntry')?.addEventListener('click', () => eurForm.classList.add('hidden'));
+  document.getElementById('eurSaveEntry')?.addEventListener('click', () => {
+    const saldo = document.getElementById('eurNewSaldo').value.trim();
+    const rendeu = document.getElementById('eurNewRendeu').value.trim();
+    const aporte = document.getElementById('eurNewAporte').value.trim();
+    if (!saldo) return alert('Informe o novo saldo.');
+    const h = loadHistories();
+    h.eur.push({ data: today, saldo, rendeu, aporte });
+    saveHistories(h);
+    document.getElementById('wiseEurSaldo').value = saldo;
+    if (rendeu) document.getElementById('wiseEurRendeu').value = rendeu;
+    eurForm.classList.add('hidden');
+    document.getElementById('eurNewSaldo').value = '';
+    document.getElementById('eurNewRendeu').value = '';
+    document.getElementById('eurNewAporte').value = '';
+    refreshHistories();
+    renderRenda();
+  });
+}
+
+setupHistoryListeners();
+refreshHistories();
+
+</script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   :root {
@@ -299,6 +423,27 @@
           </div>
         </div>
         <div id="interResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
+        <div class="border-t border-[#1f1f1f] pt-2 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-neutral-500">Histórico de saldo</span>
+            <button id="interAddEntry" class="secondary text-xs" style="padding:0.2rem 0.5rem;">+ Novo extrato</button>
+          </div>
+          <div id="interEntryForm" class="hidden grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Novo saldo (R$)</label>
+              <input type="text" inputmode="decimal" id="interNewSaldo" placeholder="Ex: 105.000,00" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Já rendeu total (R$)</label>
+              <input type="text" inputmode="decimal" id="interNewRendeu" placeholder="Ex: 5.000,00" />
+            </div>
+            <div class="flex items-end gap-2">
+              <button id="interSaveEntry" class="text-xs flex-1">Salvar</button>
+              <button id="interCancelEntry" class="secondary text-xs">×</button>
+            </div>
+          </div>
+          <div id="interHistory" class="space-y-1"></div>
+        </div>
       </div>
 
       <!-- BLOCO B: WISE USD -->
@@ -332,6 +477,27 @@
           </div>
         </div>
         <div id="wiseUsdResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
+        <div class="border-t border-[#1f1f1f] pt-2 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-neutral-500">Histórico de saldo</span>
+            <button id="usdAddEntry" class="secondary text-xs" style="padding:0.2rem 0.5rem;">+ Novo extrato</button>
+          </div>
+          <div id="usdEntryForm" class="hidden grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Novo saldo (USD)</label>
+              <input type="text" inputmode="decimal" id="usdNewSaldo" placeholder="Ex: 250,00" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Rendeu este mês (USD)</label>
+              <input type="text" inputmode="decimal" id="usdNewRendeu" placeholder="Ex: 0,35" />
+            </div>
+            <div class="flex items-end gap-2">
+              <button id="usdSaveEntry" class="text-xs flex-1">Salvar</button>
+              <button id="usdCancelEntry" class="secondary text-xs">×</button>
+            </div>
+          </div>
+          <div id="usdHistory" class="space-y-1"></div>
+        </div>
       </div>
 
       <!-- BLOCO C: WISE EUR -->
@@ -364,14 +530,32 @@
             <input type="text" inputmode="decimal" id="wiseEurRate" value="6,30" />
           </div>
         </div>
-        <div>
-          <label class="block text-xs text-neutral-500 mb-1">Aporte planejado (EUR) — ex: 2.000 semana que vem</label>
-          <div class="flex gap-2">
-            <input type="text" inputmode="decimal" id="wiseEurAporte" value="2.000,00" style="flex:1;" />
-            <input type="date" id="wiseEurAporteData" style="flex:1;" />
-          </div>
-        </div>
         <div id="wiseEurResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
+        <div class="border-t border-[#1f1f1f] pt-2 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-neutral-500">Histórico de saldo e aportes</span>
+            <button id="eurAddEntry" class="secondary text-xs" style="padding:0.2rem 0.5rem;">+ Novo extrato / aporte</button>
+          </div>
+          <div id="eurEntryForm" class="hidden grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Novo saldo (EUR)</label>
+              <input type="text" inputmode="decimal" id="eurNewSaldo" placeholder="Ex: 3.014,21" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Rendeu este mês (EUR)</label>
+              <input type="text" inputmode="decimal" id="eurNewRendeu" placeholder="Ex: 1,67" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-500 mb-1">Aporte incluído (EUR)</label>
+              <input type="text" inputmode="decimal" id="eurNewAporte" placeholder="Ex: 2.000,00" />
+            </div>
+            <div class="flex items-end gap-2">
+              <button id="eurSaveEntry" class="text-xs flex-1">Salvar</button>
+              <button id="eurCancelEntry" class="secondary text-xs">×</button>
+            </div>
+          </div>
+          <div id="eurHistory" class="space-y-1"></div>
+        </div>
       </div>
 
       <!-- BLOCO D: CARTEIRA ESTRATÉGICA -->
