@@ -120,75 +120,70 @@
   <div class="card p-4 space-y-4" id="summaryCard">
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full bg-green-500" style="animation: pulse-dot 2s ease-in-out infinite;"></div>
-        <span class="text-xs text-neutral-500 uppercase tracking-wider">Patrimônio Atual — Posição consolidada</span>
+        <div class="w-2 h-2 rounded-full bg-green-500"></div>
+        <span class="text-xs text-neutral-500 uppercase tracking-wider">Posição Consolidada — atualiza com a seção 6</span>
       </div>
       <span id="summaryTime" class="text-xs text-neutral-600"></span>
     </div>
-
-    <!-- Totais por moeda -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-2">
         <div class="flex items-center gap-2">
-          <span class="text-lg">🇧🇷</span>
-          <span class="text-xs text-neutral-500 uppercase tracking-wider">Reais (BRL)</span>
+          <span>🇧🇷</span>
+          <span class="text-xs text-neutral-500 uppercase tracking-wider">Inter Porquinho (BRL)</span>
         </div>
-        <div id="sumBrlTotal" class="text-2xl font-bold text-white">R$ —</div>
+        <div id="sumBrlTotal" class="text-2xl font-bold text-white">R$ 102.805,01</div>
         <div class="flex items-center justify-between text-xs">
-          <span class="text-neutral-500">Rendimento est. este mês</span>
-          <span id="sumBrlMes" class="text-green-400 font-semibold">—</span>
+          <span class="text-neutral-500">Rende este mês (est.)</span>
+          <span id="sumBrlMes" class="text-green-400 font-semibold">R$ 1.037,69</span>
         </div>
         <div class="flex items-center justify-between text-xs">
-          <span class="text-neutral-500">Taxa a.a. / 12</span>
-          <span id="sumBrlMensal" class="text-neutral-300">—</span>
+          <span class="text-neutral-500">Taxa × saldo × 85% IR</span>
+          <span id="sumBrlMensal" class="text-neutral-400">R$ 12.452,26/ano</span>
         </div>
       </div>
-
       <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-2">
         <div class="flex items-center gap-2">
-          <span class="text-lg">🇺🇸</span>
-          <span class="text-xs text-neutral-500 uppercase tracking-wider">Dólares (USD)</span>
+          <span>🇺🇸</span>
+          <span class="text-xs text-neutral-500 uppercase tracking-wider">Wise USD</span>
         </div>
-        <div id="sumUsdTotal" class="text-2xl font-bold text-white">$ —</div>
+        <div id="sumUsdTotal" class="text-2xl font-bold text-white">$ 102,91</div>
         <div class="flex items-center justify-between text-xs">
-          <span class="text-neutral-500">Rendeu até agora (Wise)</span>
-          <span id="sumUsdMes" class="text-green-400 font-semibold">—</span>
+          <span class="text-neutral-500">Rendeu este mês (Wise)</span>
+          <span id="sumUsdMes" class="text-green-400 font-semibold">+ $0,16</span>
         </div>
         <div class="flex items-center justify-between text-xs">
-          <span class="text-neutral-500">Estimativa mês completo</span>
-          <span id="sumUsdMensal" class="text-neutral-300">—</span>
+          <span class="text-neutral-500">Est. mês completo</span>
+          <span id="sumUsdMensal" class="text-neutral-400">$0,29 ≈ R$ 1,48</span>
         </div>
-        <div class="text-xs text-neutral-600" id="sumUsdBrl"></div>
+        <div id="sumUsdBrl" class="text-xs text-neutral-600">≈ R$ 522,55 (@5,0777)</div>
       </div>
-
       <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-2">
         <div class="flex items-center gap-2">
-          <span class="text-lg">🇪🇺</span>
-          <span class="text-xs text-neutral-500 uppercase tracking-wider">Euros (EUR)</span>
+          <span>🇪🇺</span>
+          <span class="text-xs text-neutral-500 uppercase tracking-wider">Wise EUR</span>
         </div>
-        <div id="sumEurTotal" class="text-2xl font-bold text-white">€ —</div>
+        <div id="sumEurTotal" class="text-2xl font-bold text-white">€ 3.014,21</div>
         <div class="flex items-center justify-between text-xs">
-          <span class="text-neutral-500">Rendeu até agora (Wise)</span>
-          <span id="sumEurMes" class="text-green-400 font-semibold">—</span>
+          <span class="text-neutral-500">Rendeu este mês (Wise)</span>
+          <span id="sumEurMes" class="text-green-400 font-semibold">+ €4,97</span>
         </div>
         <div class="flex items-center justify-between text-xs">
-          <span class="text-neutral-500">Estimativa mês completo</span>
-          <span id="sumEurMensal" class="text-neutral-300">—</span>
+          <span class="text-neutral-500">Est. mês completo</span>
+          <span id="sumEurMensal" class="text-neutral-400">€4,97 ≈ R$ 28,83</span>
         </div>
-        <div class="text-xs text-neutral-600" id="sumEurBrl"></div>
+        <div id="sumEurBrl" class="text-xs text-neutral-600">≈ R$ 17.473,68 (@5,7971)</div>
       </div>
     </div>
-
-    <!-- Total geral em BRL -->
     <div class="border-t border-[#1f1f1f] pt-3 flex flex-wrap items-center justify-between gap-3">
       <div>
-        <div class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Total Geral em BRL (tudo convertido)</div>
-        <div id="sumTotalBrl" class="text-3xl font-bold" style="color: var(--accent);">R$ —</div>
+        <div class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Total Geral em BRL</div>
+        <div id="sumTotalBrl" class="text-3xl font-bold" style="color:var(--accent);">R$ 120.801,23</div>
+        <div class="text-xs text-neutral-500 mt-1">Inter + Wise USD + Wise EUR convertidos</div>
       </div>
       <div class="text-right">
-        <div class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Renda passiva mensal líquida</div>
-        <div id="sumRendaMensal" class="text-2xl font-bold text-white">R$ —</div>
-        <div class="text-xs text-neutral-500">estimativa mês completo · todas as fontes</div>
+        <div class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Renda passiva mensal (est.)</div>
+        <div id="sumRendaMensal" class="text-2xl font-bold text-white">R$ 1.068,00</div>
+        <div class="text-xs text-neutral-500">todas as fontes · mês completo</div>
       </div>
     </div>
   </div>
@@ -1740,6 +1735,11 @@ if (editYieldsBtn) {
   });
 }
 
+const _origRenderRenda2 = renderRenda;
+renderRenda = function() {
+  _origRenderRenda2.apply(this, arguments);
+  renderSummary();
+};
 loadSimulador();
 renderRenda();
 renderSummary();
@@ -3086,75 +3086,42 @@ fetchQuotes();
 // autoCleanStorage movido para dentro do loadSimulador
 
 function renderSummary() {
-  const get = (id) => parseNumBR(document.getElementById(id)?.value || '0');
-  const chk = (id) => document.getElementById(id)?.checked !== false;
+  const g = id => parseNumBR(document.getElementById(id)?.value || '0');
+  const c = id => document.getElementById(id)?.checked !== false;
+  const s = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+  const fbrl = v => 'R$ ' + fmtNumBR(v);
 
-  const interSaldo   = get('interSaldo');
-  const interTaxa    = get('interTaxa');
-  const interIR      = get('interIR');
-  const interEnabled = chk('interEnabled');
+  const iS = g('interSaldo')||102805.01, iT = g('interTaxa')||14.25, iR = g('interIR')||15;
+  const uS = g('wiseUsdSaldo')||102.91, uRend = g('wiseUsdRendeu'), uT = g('wiseUsdTaxa')||3.39, uRate = g('wiseUsdRate')||5.0777;
+  const eS = g('wiseEurSaldo')||3014.21, eRend = g('wiseEurRendeu'), eT = g('wiseEurTaxa')||1.98, eRate = g('wiseEurRate')||5.7971;
 
-  const usdSaldo   = get('wiseUsdSaldo');
-  const usdRendeu  = get('wiseUsdRendeu');   // campo "rendeu este mês" — preenchido pelo usuário
-  const usdTaxa    = get('wiseUsdTaxa');
-  const usdRate    = get('wiseUsdRate');
-  const usdEnabled = chk('wiseUsdEnabled');
+  const iMen = iS * iT / 100 / 12 * (1 - iR/100);
+  const uMen = uS * uT / 100 / 12;
+  const eMen = eS * eT / 100 / 12;
 
-  const eurSaldo   = get('wiseEurSaldo');
-  const eurRendeu  = get('wiseEurRendeu');   // campo "rendeu este mês"
-  const eurTaxa    = get('wiseEurTaxa');
-  const eurRate    = get('wiseEurRate');
-  const eurEnabled = chk('wiseEurEnabled');
+  const uBrl = uS * uRate, eBrl = eS * eRate;
+  const total = (c('interEnabled') ? iS : 0) + (c('wiseUsdEnabled') ? uBrl : 0) + (c('wiseEurEnabled') ? eBrl : 0);
+  const renda = (c('interEnabled') ? iMen : 0) + (c('wiseUsdEnabled') ? uMen*uRate : 0) + (c('wiseEurEnabled') ? eMen*eRate : 0);
 
-  // Rendimento mensal ESTIMADO = taxa anual / 12 (mês cheio)
-  const interMensalLiq = interSaldo * interTaxa / 100 / 12 * (1 - interIR / 100);
-  const usdMensalUsd   = usdSaldo * usdTaxa / 100 / 12;
-  const eurMensalEur   = eurSaldo * eurTaxa / 100 / 12;
+  s('sumBrlTotal',   fbrl(iS));
+  s('sumBrlMes',     fbrl(iMen));
+  s('sumBrlMensal',  fbrl(iMen*12) + '/ano');
+  s('sumUsdTotal',   '$ ' + fmtNumBR(uS));
+  s('sumUsdMes',     '+ $' + fmtNumBR(uRend, 2));
+  s('sumUsdMensal',  '$' + fmtNumBR(uMen,2) + ' ≈ ' + fbrl(uMen*uRate));
+  s('sumUsdBrl',     '≈ ' + fbrl(uBrl) + ' (@' + fmtNumBR(uRate,4) + ')');
+  s('sumEurTotal',   '€ ' + fmtNumBR(eS));
+  s('sumEurMes',     '+ €' + fmtNumBR(eRend, 2));
+  s('sumEurMensal',  '€' + fmtNumBR(eMen,2) + ' ≈ ' + fbrl(eMen*eRate));
+  s('sumEurBrl',     '≈ ' + fbrl(eBrl) + ' (@' + fmtNumBR(eRate,4) + ')');
+  s('sumTotalBrl',   fbrl(total));
+  s('sumRendaMensal',fbrl(renda));
 
-  // Conversões BRL
-  const usdBrl = usdSaldo * usdRate;
-  const eurBrl = eurSaldo * eurRate;
-  const totalBrl = (interEnabled ? interSaldo : 0)
-                 + (usdEnabled   ? usdBrl     : 0)
-                 + (eurEnabled   ? eurBrl     : 0);
-  const rendaMensalTotal = (interEnabled ? interMensalLiq            : 0)
-                         + (usdEnabled   ? usdMensalUsd * usdRate    : 0)
-                         + (eurEnabled   ? eurMensalEur * eurRate    : 0);
-
-  const brl = (v) => 'R$ ' + fmtNumBR(v);
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-
-  // Card BRL — Inter Porquinho
-  set('sumBrlTotal',   brl(interSaldo));
-  set('sumBrlMes',     '+ ' + brl(interMensalLiq));          // rendimento do mês estimado pela taxa
-  set('sumBrlMensal',  brl(interMensalLiq) + '/mês est.');
-
-  // Card USD — Wise
-  set('sumUsdTotal',   '$ ' + fmtNumBR(usdSaldo));
-  set('sumUsdMes',     '+ $' + fmtNumBR(usdRendeu, 2));      // o que a Wise já mostrou que rendeu
-  set('sumUsdMensal',  '$ ' + fmtNumBR(usdMensalUsd, 2) + '/mês est.');
-  set('sumUsdBrl',     '≈ ' + brl(usdBrl) + ' (@' + fmtNumBR(usdRate, 4) + ')');
-
-  // Card EUR — Wise
-  set('sumEurTotal',   '€ ' + fmtNumBR(eurSaldo));
-  set('sumEurMes',     '+ €' + fmtNumBR(eurRendeu, 2));      // o que a Wise já mostrou que rendeu
-  set('sumEurMensal',  '€ ' + fmtNumBR(eurMensalEur, 2) + '/mês est.');
-  set('sumEurBrl',     '≈ ' + brl(eurBrl) + ' (@' + fmtNumBR(eurRate, 4) + ')');
-
-  // Totais
-  set('sumTotalBrl',     brl(totalBrl));
-  set('sumRendaMensal',  brl(rendaMensalTotal));
-
-  const timeEl = document.getElementById('summaryTime');
-  if (timeEl) timeEl.textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  const t = document.getElementById('summaryTime');
+  if(t) t.textContent = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 }
 
 // renderSummary é chamada automaticamente via wrapper no renderRenda
-const _origRenderRenda2 = renderRenda;
-renderRenda = function() {
-  _origRenderRenda2.apply(this, arguments);
-  renderSummary();
-};
 
 
 </script>
