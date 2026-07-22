@@ -191,6 +191,98 @@ document.getElementById('applyQuotes')?.addEventListener('click', () => {
 // Buscar cotações automaticamente ao carregar
 fetchQuotes();
 
+
+// ============ CARD DE RESUMO PATRIMONIAL ============
+// VERSÃO DO HTML que veio no deploy — usada pra detectar localStorage desatualizado
+const DEPLOY_VERSION = '20260722_v3';
+
+// Limpa localStorage se versão do deploy for mais nova
+(function autoCleanStorage() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('fin_trader_sim_v3') || '{}');
+    if (saved._deployVersion !== DEPLOY_VERSION) {
+      // Limpa apenas as cotações, preserva saldos e histórico que o usuário editou
+      delete saved.wiseUsdRate;
+      delete saved.wiseEurRate;
+      saved._deployVersion = DEPLOY_VERSION;
+      localStorage.setItem('fin_trader_sim_v3', JSON.stringify(saved));
+    }
+  } catch(e) {}
+})();
+
+function renderSummary() {
+  const get = (id) => parseNumBR(document.getElementById(id)?.value || '0');
+  const chk = (id) => document.getElementById(id)?.checked !== false;
+
+  const interSaldo   = get('interSaldo');
+  const interTaxa    = get('interTaxa');
+  const interIR      = get('interIR');
+  const interEnabled = chk('interEnabled');
+
+  const usdSaldo   = get('wiseUsdSaldo');
+  const usdRendeu  = get('wiseUsdRendeu');   // campo "rendeu este mês" — preenchido pelo usuário
+  const usdTaxa    = get('wiseUsdTaxa');
+  const usdRate    = get('wiseUsdRate');
+  const usdEnabled = chk('wiseUsdEnabled');
+
+  const eurSaldo   = get('wiseEurSaldo');
+  const eurRendeu  = get('wiseEurRendeu');   // campo "rendeu este mês"
+  const eurTaxa    = get('wiseEurTaxa');
+  const eurRate    = get('wiseEurRate');
+  const eurEnabled = chk('wiseEurEnabled');
+
+  // Rendimento mensal ESTIMADO = taxa anual / 12 (mês cheio)
+  const interMensalLiq = interSaldo * interTaxa / 100 / 12 * (1 - interIR / 100);
+  const usdMensalUsd   = usdSaldo * usdTaxa / 100 / 12;
+  const eurMensalEur   = eurSaldo * eurTaxa / 100 / 12;
+
+  // Conversões BRL
+  const usdBrl = usdSaldo * usdRate;
+  const eurBrl = eurSaldo * eurRate;
+  const totalBrl = (interEnabled ? interSaldo : 0)
+                 + (usdEnabled   ? usdBrl     : 0)
+                 + (eurEnabled   ? eurBrl     : 0);
+  const rendaMensalTotal = (interEnabled ? interMensalLiq            : 0)
+                         + (usdEnabled   ? usdMensalUsd * usdRate    : 0)
+                         + (eurEnabled   ? eurMensalEur * eurRate    : 0);
+
+  const brl = (v) => 'R$ ' + fmtNumBR(v);
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+  // Card BRL — Inter Porquinho
+  set('sumBrlTotal',   brl(interSaldo));
+  set('sumBrlMes',     '+ ' + brl(interMensalLiq));          // rendimento do mês estimado pela taxa
+  set('sumBrlMensal',  brl(interMensalLiq) + '/mês est.');
+
+  // Card USD — Wise
+  set('sumUsdTotal',   '$ ' + fmtNumBR(usdSaldo));
+  set('sumUsdMes',     '+ $' + fmtNumBR(usdRendeu, 2));      // o que a Wise já mostrou que rendeu
+  set('sumUsdMensal',  '$ ' + fmtNumBR(usdMensalUsd, 2) + '/mês est.');
+  set('sumUsdBrl',     '≈ ' + brl(usdBrl) + ' (@' + fmtNumBR(usdRate, 4) + ')');
+
+  // Card EUR — Wise
+  set('sumEurTotal',   '€ ' + fmtNumBR(eurSaldo));
+  set('sumEurMes',     '+ €' + fmtNumBR(eurRendeu, 2));      // o que a Wise já mostrou que rendeu
+  set('sumEurMensal',  '€ ' + fmtNumBR(eurMensalEur, 2) + '/mês est.');
+  set('sumEurBrl',     '≈ ' + brl(eurBrl) + ' (@' + fmtNumBR(eurRate, 4) + ')');
+
+  // Totais
+  set('sumTotalBrl',     brl(totalBrl));
+  set('sumRendaMensal',  brl(rendaMensalTotal));
+
+  const timeEl = document.getElementById('summaryTime');
+  if (timeEl) timeEl.textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+}
+
+// Chamar renderSummary sempre que renderRenda for chamado
+const _origRenderRenda2 = renderRenda;
+renderRenda = function() {
+  _origRenderRenda2.apply(this, arguments);
+  renderSummary();
+};
+
+renderSummary();
+
 </script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
@@ -301,6 +393,85 @@ fetchQuotes();
 </header>
 
 <main class="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
+
+  <!-- CARD DE RESUMO PATRIMONIAL -->
+  <div class="card p-4 space-y-4" id="summaryCard">
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <div class="flex items-center gap-2">
+        <div class="w-2 h-2 rounded-full bg-green-500" style="animation: pulse-dot 2s ease-in-out infinite;"></div>
+        <span class="text-xs text-neutral-500 uppercase tracking-wider">Patrimônio Atual — Posição consolidada</span>
+      </div>
+      <span id="summaryTime" class="text-xs text-neutral-600"></span>
+    </div>
+
+    <!-- Totais por moeda -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-2">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">🇧🇷</span>
+          <span class="text-xs text-neutral-500 uppercase tracking-wider">Reais (BRL)</span>
+        </div>
+        <div id="sumBrlTotal" class="text-2xl font-bold text-white">R$ —</div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-neutral-500">Rendimento est. este mês</span>
+          <span id="sumBrlMes" class="text-green-400 font-semibold">—</span>
+        </div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-neutral-500">Taxa a.a. / 12</span>
+          <span id="sumBrlMensal" class="text-neutral-300">—</span>
+        </div>
+      </div>
+
+      <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-2">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">🇺🇸</span>
+          <span class="text-xs text-neutral-500 uppercase tracking-wider">Dólares (USD)</span>
+        </div>
+        <div id="sumUsdTotal" class="text-2xl font-bold text-white">$ —</div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-neutral-500">Rendeu até agora (Wise)</span>
+          <span id="sumUsdMes" class="text-green-400 font-semibold">—</span>
+        </div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-neutral-500">Estimativa mês completo</span>
+          <span id="sumUsdMensal" class="text-neutral-300">—</span>
+        </div>
+        <div class="text-xs text-neutral-600" id="sumUsdBrl"></div>
+      </div>
+
+      <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-2">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">🇪🇺</span>
+          <span class="text-xs text-neutral-500 uppercase tracking-wider">Euros (EUR)</span>
+        </div>
+        <div id="sumEurTotal" class="text-2xl font-bold text-white">€ —</div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-neutral-500">Rendeu até agora (Wise)</span>
+          <span id="sumEurMes" class="text-green-400 font-semibold">—</span>
+        </div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-neutral-500">Estimativa mês completo</span>
+          <span id="sumEurMensal" class="text-neutral-300">—</span>
+        </div>
+        <div class="text-xs text-neutral-600" id="sumEurBrl"></div>
+      </div>
+    </div>
+
+    <!-- Total geral em BRL -->
+    <div class="border-t border-[#1f1f1f] pt-3 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <div class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Total Geral em BRL (tudo convertido)</div>
+        <div id="sumTotalBrl" class="text-3xl font-bold" style="color: var(--accent);">R$ —</div>
+      </div>
+      <div class="text-right">
+        <div class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Renda passiva mensal líquida</div>
+        <div id="sumRendaMensal" class="text-2xl font-bold text-white">R$ —</div>
+        <div class="text-xs text-neutral-500">estimativa mês completo · todas as fontes</div>
+      </div>
+    </div>
+  </div>
+
+
 
   <section class="card">
     <div class="card-header flex items-center justify-between flex-wrap gap-2">
