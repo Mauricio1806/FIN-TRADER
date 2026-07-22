@@ -186,32 +186,7 @@ document.getElementById('applyQuotes')?.addEventListener('click', () => {
   renderRenda();
 });
 
-// Na inicialização: forçar reset do localStorage se tiver cotações antigas (5,70/6,30)
-(function checkAndResetOldRates() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('fin_trader_sim_v3') || '{}');
-    let changed = false;
-    // Se EUR saldo ainda estiver com 1014 (antigo), atualiza pra 3014
-    if (saved.wiseEurSaldo && (saved.wiseEurSaldo === '1.014,21' || saved.wiseEurSaldo === '1014,21')) {
-      saved.wiseEurSaldo = '3.014,21';
-      saved.wiseEurRendeu = '4,97';
-      changed = true;
-    }
-    // Se cotações antigas (5,70 e 6,30), atualiza
-    if (saved.wiseUsdRate === '5,70' || saved.wiseUsdRate === '5.70') {
-      saved.wiseUsdRate = '5,0777';
-      changed = true;
-    }
-    if (saved.wiseEurRate === '6,30' || saved.wiseEurRate === '6.30') {
-      saved.wiseEurRate = '5,7971';
-      changed = true;
-    }
-    if (changed) {
-      localStorage.setItem('fin_trader_sim_v3', JSON.stringify(saved));
-      console.log('Valores desatualizados corrigidos no localStorage');
-    }
-  } catch(e) {}
-})();
+
 
 // Buscar cotações automaticamente ao carregar
 fetchQuotes();
@@ -1781,12 +1756,12 @@ function renderRenda() {
       wiseUsdSaldo: document.getElementById('wiseUsdSaldo')?.value,
       wiseUsdRendeu: document.getElementById('wiseUsdRendeu')?.value,
       wiseUsdTaxa: document.getElementById('wiseUsdTaxa')?.value,
-      wiseUsdRate: document.getElementById('wiseUsdRate')?.value,
+      // wiseUsdRate: NÃO salvar — cotação sempre vem do HTML atualizado
       wiseUsdEnabled,
       wiseEurSaldo: document.getElementById('wiseEurSaldo')?.value,
       wiseEurRendeu: document.getElementById('wiseEurRendeu')?.value,
       wiseEurTaxa: document.getElementById('wiseEurTaxa')?.value,
-      wiseEurRate: document.getElementById('wiseEurRate')?.value,
+      // wiseEurRate: NÃO salvar — cotação sempre vem do HTML atualizado
       wiseEurAporte: document.getElementById('wiseEurAporte')?.value,
       wiseEurAporteData: document.getElementById('wiseEurAporteData')?.value,
       wiseEurEnabled,
@@ -1795,22 +1770,30 @@ function renderRenda() {
 }
 
 function loadSimulador() {
+  // Cotações NUNCA vêm do localStorage — sempre usa o valor atual do HTML
+  // Só carrega checkboxes e campos que o usuário editou manualmente
   try {
     const raw = localStorage.getItem('fin_trader_sim_v3');
     if (!raw) return;
     const d = JSON.parse(raw);
     const setVal = (id,v) => { const el=document.getElementById(id); if(el&&v!=null) el.value=v; };
     const setChk = (id,v) => { const el=document.getElementById(id); if(el&&v!=null) el.checked=v; };
-    setVal('interSaldo', d.interSaldo); setVal('interJaRendeu', d.interJaRendeu);
-    setVal('interTaxa', d.interTaxa); setVal('interIR', d.interIR);
+    // Saldos e rendimentos do usuário — OK carregar
+    setVal('interSaldo', d.interSaldo);
+    setVal('interJaRendeu', d.interJaRendeu);
+    setVal('interTaxa', d.interTaxa);
+    setVal('interIR', d.interIR);
     setChk('interEnabled', d.interEnabled);
-    setVal('wiseUsdSaldo', d.wiseUsdSaldo); setVal('wiseUsdRendeu', d.wiseUsdRendeu);
-    setVal('wiseUsdTaxa', d.wiseUsdTaxa); setVal('wiseUsdRate', d.wiseUsdRate);
+    setVal('wiseUsdSaldo', d.wiseUsdSaldo);
+    setVal('wiseUsdRendeu', d.wiseUsdRendeu);
+    setVal('wiseUsdTaxa', d.wiseUsdTaxa);
     setChk('wiseUsdEnabled', d.wiseUsdEnabled);
-    setVal('wiseEurSaldo', d.wiseEurSaldo); setVal('wiseEurRendeu', d.wiseEurRendeu);
-    setVal('wiseEurTaxa', d.wiseEurTaxa); setVal('wiseEurRate', d.wiseEurRate);
-    setVal('wiseEurAporte', d.wiseEurAporte); setVal('wiseEurAporteData', d.wiseEurAporteData);
+    setVal('wiseEurSaldo', d.wiseEurSaldo);
+    setVal('wiseEurRendeu', d.wiseEurRendeu);
+    setVal('wiseEurTaxa', d.wiseEurTaxa);
     setChk('wiseEurEnabled', d.wiseEurEnabled);
+    // COTAÇÕES: NUNCA carrega do localStorage — usa sempre o valor do HTML (atualizado no deploy)
+    // wiseUsdRate e wiseEurRate ignorados intencionalmente
   } catch(e) { console.warn('loadSimulador:', e); }
 }
 
