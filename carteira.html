@@ -131,14 +131,14 @@
           <span>🇧🇷</span>
           <span class="text-xs text-neutral-500 uppercase tracking-wider">Inter Porquinho (BRL)</span>
         </div>
-        <div id="sumBrlTotal" class="text-2xl font-bold text-white">R$ 102.967,11</div>
+        <div id="sumBrlTotal" class="text-2xl font-bold text-white">R$ 103.021,21</div>
         <div class="flex items-center justify-between text-xs">
           <span class="text-neutral-500">Rende este mês (est.)</span>
-          <span id="sumBrlMes" class="text-green-400 font-semibold">R$ 1.039,32</span>
+          <span id="sumBrlMes" class="text-green-400 font-semibold">R$ 1.039,87</span>
         </div>
         <div class="flex items-center justify-between text-xs">
           <span class="text-neutral-500">Taxa × saldo × 85% IR</span>
-          <span id="sumBrlMensal" class="text-neutral-400">R$ 12.471,89/ano</span>
+          <span id="sumBrlMensal" class="text-neutral-400">R$ 12.478,44/ano</span>
         </div>
       </div>
       <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-2">
@@ -146,7 +146,7 @@
           <span>🇺🇸</span>
           <span class="text-xs text-neutral-500 uppercase tracking-wider">Wise USD</span>
         </div>
-        <div id="sumUsdTotal" class="text-2xl font-bold text-white">$ 102,99</div>
+        <div id="sumUsdTotal" class="text-2xl font-bold text-white">$ 204,30</div>
         <div class="flex items-center justify-between text-xs">
           <span class="text-neutral-500">Rendeu este mês (Wise)</span>
           <span id="sumUsdMes" class="text-green-400 font-semibold">+ $0,22</span>
@@ -155,7 +155,7 @@
           <span class="text-neutral-500">Est. mês completo</span>
           <span id="sumUsdMensal" class="text-neutral-400">$0,29 ≈ R$ 1,48</span>
         </div>
-        <div id="sumUsdBrl" class="text-xs text-neutral-600">≈ R$ 522,95 (@5,0777)</div>
+        <div id="sumUsdBrl" class="text-xs text-neutral-600">Inter $101,31 + Wise $102,99 ≈ R$ 1.037,37</div>
       </div>
       <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-2">
         <div class="flex items-center gap-2">
@@ -177,12 +177,12 @@
     <div class="border-t border-[#1f1f1f] pt-3 flex flex-wrap items-center justify-between gap-3">
       <div>
         <div class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Total Geral em BRL</div>
-        <div id="sumTotalBrl" class="text-3xl font-bold" style="color:var(--accent);">R$ 120.967,57</div>
+        <div id="sumTotalBrl" class="text-3xl font-bold" style="color:var(--accent);">R$ 121.536,09</div>
         <div class="text-xs text-neutral-500 mt-1">Inter + Wise USD + Wise EUR convertidos</div>
       </div>
       <div class="text-right">
         <div class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Renda passiva mensal (est.)</div>
-        <div id="sumRendaMensal" class="text-2xl font-bold text-white">R$ 1.069,64</div>
+        <div id="sumRendaMensal" class="text-2xl font-bold text-white">R$ 1.071,64</div>
         <div class="text-xs text-neutral-500">todas as fontes · mês completo</div>
       </div>
     </div>
@@ -357,11 +357,11 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Saldo atual (R$)</label>
-            <input type="text" inputmode="decimal" id="interSaldo" value="102.967,11" />
+            <input type="text" inputmode="decimal" id="interSaldo" value="103.021,21" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Já rendeu total (R$)</label>
-            <input type="text" inputmode="decimal" id="interJaRendeu" value="4.967,11" />
+            <input type="text" inputmode="decimal" id="interJaRendeu" value="5.021,21" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. bruta (%)</label>
@@ -420,6 +420,40 @@
         <button id="refreshQuotes" class="secondary text-xs" style="padding:0.2rem 0.6rem;">↻ Atualizar cotações</button>
         <span id="quoteTime" class="text-xs text-neutral-600">22/07/2026</span>
         <button id="applyQuotes" class="text-xs" style="padding:0.2rem 0.6rem;">Aplicar nos campos</button>
+      </div>
+
+
+      <!-- BLOCO A2: INTER USD -->
+      <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="pill" style="background:rgba(59,130,246,0.15);color:#93c5fd;">Inter USD</span>
+            <span class="text-xs text-neutral-500">Investido nos EUA via Inter Invest USA</span>
+          </div>
+          <label class="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
+            <input type="checkbox" id="interUsdEnabled" checked style="width:16px;height:16px;">
+            Incluir no total
+          </label>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Saldo (USD)</label>
+            <input type="text" inputmode="decimal" id="interUsdSaldo" value="101,31" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Rendimento esperado (% a.a.)</label>
+            <input type="text" inputmode="decimal" id="interUsdTaxa" value="3,39" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">USD/BRL</label>
+            <input type="text" inputmode="decimal" id="interUsdRate" value="5,0777" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Data de início</label>
+            <input type="date" id="interUsdInicio" value="2026-02-01" />
+          </div>
+        </div>
+        <div id="interUsdResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
       </div>
 
       <!-- BLOCO B: WISE USD -->
@@ -1638,8 +1672,18 @@ function renderRenda() {
   const interMensalBrl = interEnabled ? interCalc.mensal : 0;
   const usdMensalBrl = wiseUsdEnabled ? wiseUsdMensalBrl : 0;
   const eurMensalBrl = wiseEurEnabled ? wiseEurMensalBrl : 0;
-  const totalMensalLiq = interMensalBrl + usdMensalBrl + eurMensalBrl + stratMonthlyNet;
+  // Inter USD no renderRenda
+  const interUsdEnabled2 = document.getElementById('interUsdEnabled')?.checked !== false;
+  const interUsdSaldo2   = parseNumBR(document.getElementById('interUsdSaldo')?.value || '0');
+  const interUsdTaxa2    = parseNumBR(document.getElementById('interUsdTaxa')?.value  || '3.39');
+  const interUsdRate2    = parseNumBR(document.getElementById('interUsdRate')?.value  || '5.0777');
+  const interUsdMensalUsd2 = interUsdSaldo2 * interUsdTaxa2 / 100 / 12;
+  const interUsdBrl2     = interUsdSaldo2 * interUsdRate2;
+
+  const totalMensalLiq = interMensalBrl + usdMensalBrl + eurMensalBrl + stratMonthlyNet
+    + (interUsdEnabled2 ? interUsdMensalUsd2 * interUsdRate2 : 0);
   const totalMensalBruto = (interEnabled ? interCalc.bruto : 0)
+    + (interUsdEnabled2 ? interUsdMensalUsd2 * interUsdRate2 : 0)
     + (wiseUsdEnabled ? wiseUsdMensalUsd * wiseUsdRate : 0)
     + (wiseEurEnabled ? wiseEurMensalEur * wiseEurRate : 0)
     + stratMonthlyGross;
@@ -1664,6 +1708,11 @@ function renderRenda() {
       interTaxa: document.getElementById('interTaxa')?.value,
       interIR: document.getElementById('interIR')?.value,
       interEnabled,
+      interUsdSaldo: document.getElementById('interUsdSaldo')?.value,
+      interUsdTaxa: document.getElementById('interUsdTaxa')?.value,
+      interUsdRate: document.getElementById('interUsdRate')?.value,
+      interUsdInicio: document.getElementById('interUsdInicio')?.value,
+      interUsdEnabled: document.getElementById('interUsdEnabled')?.checked,
       wiseUsdSaldo: document.getElementById('wiseUsdSaldo')?.value,
       wiseUsdRendeu: document.getElementById('wiseUsdRendeu')?.value,
       wiseUsdTaxa: document.getElementById('wiseUsdTaxa')?.value,
@@ -1680,7 +1729,7 @@ function renderRenda() {
   } catch(e) {}
 }
 
-const DEPLOY_VERSION = '20260724_v1';
+const DEPLOY_VERSION = '20260724_v2';
 function loadSimulador() {
   // Limpar cotações antigas do localStorage antes de carregar
   try {
@@ -1704,6 +1753,11 @@ function loadSimulador() {
     setVal('interTaxa', d.interTaxa);
     setVal('interIR', d.interIR);
     setChk('interEnabled', d.interEnabled);
+    setVal('interUsdSaldo', d.interUsdSaldo);
+    setVal('interUsdTaxa', d.interUsdTaxa);
+    setVal('interUsdRate', d.interUsdRate);
+    setVal('interUsdInicio', d.interUsdInicio);
+    setChk('interUsdEnabled', d.interUsdEnabled);
     setVal('wiseUsdSaldo', d.wiseUsdSaldo);
     setVal('wiseUsdRendeu', d.wiseUsdRendeu);
     setVal('wiseUsdTaxa', d.wiseUsdTaxa);
@@ -1719,6 +1773,7 @@ function loadSimulador() {
 
 // Listeners para todos os inputs da seção 6
 ['interEnabled','interSaldo','interJaRendeu','interTaxa','interIR',
+ 'interUsdEnabled','interUsdSaldo','interUsdTaxa','interUsdRate','interUsdInicio',
  'wiseUsdEnabled','wiseUsdSaldo','wiseUsdRendeu','wiseUsdTaxa','wiseUsdRate',
  'wiseEurEnabled','wiseEurSaldo','wiseEurRendeu','wiseEurTaxa','wiseEurRate',
  'wiseEurAporte','wiseEurAporteData',
@@ -3160,13 +3215,31 @@ function renderSummary() {
   const eMen = eS * eT / 100 / 12;
 
   const uBrl = uS * uRate, eBrl = eS * eRate;
-  const total = (c('interEnabled') ? iS : 0) + (c('wiseUsdEnabled') ? uBrl : 0) + (c('wiseEurEnabled') ? eBrl : 0);
-  const renda = (c('interEnabled') ? iMen : 0) + (c('wiseUsdEnabled') ? uMen*uRate : 0) + (c('wiseEurEnabled') ? eMen*eRate : 0);
+
+  // Inter USD
+  const iUsdEnabled = c('interUsdEnabled');
+  const iUsdS    = g('interUsdSaldo') || 101.31;
+  const iUsdT    = g('interUsdTaxa')  || 3.39;
+  const iUsdRate = g('interUsdRate')  || 5.0777;
+  const iUsdBrl  = iUsdS * iUsdRate;
+  const iUsdMen  = iUsdS * iUsdT / 100 / 12;
+
+  const total = (c('interEnabled') ? iS : 0)
+             + (iUsdEnabled ? iUsdBrl : 0)
+             + (c('wiseUsdEnabled') ? uBrl : 0)
+             + (c('wiseEurEnabled') ? eBrl : 0);
+  const renda = (c('interEnabled') ? iMen : 0)
+              + (iUsdEnabled ? iUsdMen*iUsdRate : 0)
+              + (c('wiseUsdEnabled') ? uMen*uRate : 0)
+              + (c('wiseEurEnabled') ? eMen*eRate : 0);
 
   s('sumBrlTotal',   fbrl(iS));
   s('sumBrlMes',     fbrl(iMen));
   s('sumBrlMensal',  fbrl(iMen*12) + '/ano');
-  s('sumUsdTotal',   '$ ' + fmtNumBR(uS));
+  // Card USD = Wise USD + Inter USD somados
+  const totalUsdUnits = uS + (document.getElementById('interUsdEnabled')?.checked !== false ? iUsdSaldo : 0);
+  const totalUsdBrl2  = uBrl + (document.getElementById('interUsdEnabled')?.checked !== false ? iUsdBrl : 0);
+  s('sumUsdTotal',   '$ ' + fmtNumBR(totalUsdUnits));
   s('sumUsdMes',     '+ $' + fmtNumBR(uRend, 2));
   s('sumUsdMensal',  '$' + fmtNumBR(uMen,2) + ' ≈ ' + fbrl(uMen*uRate));
   s('sumUsdBrl',     '≈ ' + fbrl(uBrl) + ' (@' + fmtNumBR(uRate,4) + ')');
@@ -3241,6 +3314,26 @@ function renderDailyAccrual() {
       `Anual: R$ ${fmtNumBR(interSaldo * interTaxa/100 * (1-interIR/100))} · ` +
       `<span class="text-green-300">Hoje rendeu: +R$ ${fmtNumBR(rendHoje, 2)}</span> · ` +
       `<span class="text-yellow-400">Total desde ${interInicio}: R$ ${fmtNumBR(rendTotalLiq)}</span>`;
+  }
+
+  // ---- INTER USD ----
+  const iUsdSaldoD = parseNumBR(document.getElementById('interUsdSaldo')?.value || '0');
+  const iUsdTaxaD  = parseNumBR(document.getElementById('interUsdTaxa')?.value  || '3.39');
+  const iUsdRateD  = parseNumBR(document.getElementById('interUsdRate')?.value  || '5.08');
+  const iUsdInicioD = document.getElementById('interUsdInicio')?.value;
+  if (iUsdInicioD && iUsdSaldoD > 0) {
+    const dtI = new Date(iUsdInicioD + 'T00:00:00');
+    const dias = diasUteisEntre(dtI, hoje);
+    const rendTotal = rendimentoAcumulado(iUsdSaldoD, iUsdTaxaD, dias);
+    const rendMes   = rendimentoMesAtual(iUsdSaldoD, iUsdTaxaD);
+    const rendHoje  = rendimentoAcumulado(iUsdSaldoD, iUsdTaxaD, 1);
+    const res = document.getElementById('interUsdResult');
+    if (res) res.innerHTML =
+      `<b class="text-white">$${fmtNumBR(iUsdSaldoD)}</b>` +
+      ` (≈ R$ ${fmtNumBR(iUsdSaldoD*iUsdRateD)}) × ${fmtNumBR(iUsdTaxaD)}% a.a. → ` +
+      `Mensal: <b style="color:var(--accent)">$${fmtNumBR(rendMes,2)} ≈ R$ ${fmtNumBR(rendMes*iUsdRateD)}</b> · ` +
+      `<span class="text-green-300">Hoje: +$${fmtNumBR(rendHoje,4)}</span> · ` +
+      `<span class="text-yellow-400">Acum.: $${fmtNumBR(rendTotal,2)}</span>`;
   }
 
   // ---- WISE USD ----
