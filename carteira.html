@@ -286,24 +286,32 @@
       <div id="positionForm" class="hidden bg-[#0d0d0d] border border-[#1f1f1f] rounded p-3 space-y-3">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs text-neutral-500 mb-1">Ticker / Nome</label>
-            <input type="text" id="posTicker" placeholder="Ex: SPYI11, Tesouro IPCA+ 2035" />
+            <label class="block text-xs text-neutral-500 mb-1">Ticker</label>
+            <input type="text" id="posTicker" placeholder="IVVB11.SA · PETR4.SA · VOO · LTN2027" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Categoria</label>
             <select id="posCategory">
-              <option value="rv_int">RV Internacional (SPYI11/QQQI11)</option>
-              <option value="rv_br">RV Brasil (Fundo/Ação)</option>
+              <option value="rv_int">RV Internacional (SPYI11/QQQI11/VOO)</option>
+              <option value="rv_br">RV Brasil (Fundo/Ação BR)</option>
               <option value="rf_ipca">RF Tesouro IPCA+</option>
               <option value="rf_selic">RF CDB/Selic</option>
             </select>
           </div>
           <div>
-            <label class="block text-xs text-neutral-500 mb-1">Valor investido (R$)</label>
+            <label class="block text-xs text-neutral-500 mb-1">Qtd. de cotas</label>
+            <input type="number" id="posQtd" placeholder="Ex: 10" min="0" step="0.001" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Preço médio de compra (R$)</label>
+            <input type="number" id="posPreco" placeholder="Ex: 145,50" min="0" step="0.01" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Valor investido (R$) — ou preencha qtd+preço</label>
             <input type="number" id="posValue" placeholder="Ex: 1500" min="0" step="0.01" />
           </div>
           <div>
-            <label class="block text-xs text-neutral-500 mb-1">Data</label>
+            <label class="block text-xs text-neutral-500 mb-1">Data de compra</label>
             <input type="date" id="posDate" />
           </div>
         </div>
@@ -315,10 +323,10 @@
       <div class="table-wrap">
         <table id="positionsTable">
           <thead>
-            <tr><th>Ativo</th><th>Categoria</th><th class="text-right">Valor</th><th class="text-right">% Atual</th><th>Data</th><th></th></tr>
+            <tr><th>Ativo</th><th>Categoria</th><th class="text-right">Investido</th><th class="text-right">Mercado</th><th class="text-right">P&L</th><th class="text-right">P&L%</th><th class="text-right">%</th><th>Data</th><th style="cursor:pointer;color:var(--accent);font-size:0.7rem;" id="refreshPricesBtn" title="Atualizar preços">↻</th></tr>
           </thead>
           <tbody id="positionsBody">
-            <tr><td colspan="6" class="text-center text-neutral-600 py-6">Nenhuma posição registrada. Clique em "+ Adicionar".</td></tr>
+            <tr><td colspan="9" class="text-center text-neutral-600 py-6">Nenhuma posição registrada. Clique em "+ Adicionar".</td></tr>
           </tbody>
         </table>
       </div>
@@ -1241,42 +1249,7 @@ document.getElementById("editStrategy").addEventListener("click", () => {
   save(); renderAll();
 });
 
-function renderPositions() {
-  const body = document.getElementById("positionsBody");
-  const total = state.positions.reduce((s, p) => s + (p.value || 0), 0);
-  document.getElementById("metricTotal").textContent = fmtBRL(total);
-  document.getElementById("metricPositions").textContent = state.positions.length;
-  const byCategory = { rv_int: 0, rv_br: 0, rf_ipca: 0, rf_selic: 0 };
-  state.positions.forEach(p => { byCategory[p.category] = (byCategory[p.category] || 0) + (p.value || 0); });
-  const rvPct = total > 0 ? ((byCategory.rv_int + byCategory.rv_br) / total * 100) : 0;
-  const rfPct = total > 0 ? ((byCategory.rf_ipca + byCategory.rf_selic) / total * 100) : 0;
-  document.getElementById("metricRV").textContent = `${rvPct.toFixed(1)}%`;
-  document.getElementById("metricRF").textContent = `${rfPct.toFixed(1)}%`;
-  if (!state.positions.length) {
-    body.innerHTML = `<tr><td colspan="6" class="text-center text-neutral-600 py-6">Nenhuma posição registrada. Clique em "+ Adicionar".</td></tr>`;
-    return;
-  }
-  body.innerHTML = state.positions.map((p, idx) => {
-    const s = state.strategy[p.category];
-    const pct = total > 0 ? (p.value / total * 100) : 0;
-    return `<tr>
-      <td class="text-white font-semibold">${escapeHtml(p.ticker)}</td>
-      <td><span class="pill ${s.pill}">${s.name}</span></td>
-      <td class="text-right">${fmtBRL(p.value)}</td>
-      <td class="text-right">${pct.toFixed(1)}%</td>
-      <td class="text-neutral-500">${p.date || "—"}</td>
-      <td class="text-right"><button class="danger text-xs" data-del="${idx}">×</button></td>
-    </tr>`;
-  }).join("");
-  body.querySelectorAll("[data-del]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const idx = parseInt(btn.dataset.del, 10);
-      if (confirm(`Remover posição "${state.positions[idx].ticker}"?`)) {
-        state.positions.splice(idx, 1); save(); renderAll();
-      }
-    });
-  });
-}
+// renderPositions substituído pelo motor de preços abaixo
 
 const posForm = document.getElementById("positionForm");
 document.getElementById("addPositionBtn").addEventListener("click", () => {
@@ -1289,16 +1262,22 @@ document.getElementById("cancelPositionBtn").addEventListener("click", () => {
   ["posTicker", "posValue"].forEach(id => document.getElementById(id).value = "");
 });
 document.getElementById("savePositionBtn").addEventListener("click", () => {
-  const ticker = document.getElementById("posTicker").value.trim();
+  const ticker = document.getElementById("posTicker").value.trim().toUpperCase();
   const category = document.getElementById("posCategory").value;
-  const value = parseFloat(document.getElementById("posValue").value);
+  const qtd   = parseFloat(document.getElementById("posQtd")?.value)   || 0;
+  const preco = parseFloat(document.getElementById("posPreco")?.value) || 0;
+  let value   = parseFloat(document.getElementById("posValue").value);
+  if ((isNaN(value) || value <= 0) && qtd > 0 && preco > 0) value = qtd * preco;
   const date = document.getElementById("posDate").value;
-  if (!ticker) return alert("Informe o ticker/nome.");
-  if (!value || value <= 0) return alert("Informe um valor válido.");
-  state.positions.push({ ticker, category, value, date });
+  if (!ticker) return alert("Informe o ticker.");
+  if (!value || value <= 0) return alert("Informe o valor investido ou qtd + preço médio.");
+  state.positions.push({ ticker, category, value, qtd, preco, date });
   save(); renderAll();
+  setTimeout(() => refreshAllPrices(), 800);
   posForm.classList.add("hidden");
-  ["posTicker", "posValue"].forEach(id => document.getElementById(id).value = "");
+  ["posTicker","posValue","posDate","posQtd","posPreco"].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = "";
+  });
 });
 
 function renderRebalance() {
@@ -3413,6 +3392,241 @@ renderRenda = function() {
 // Atualizar a cada hora automaticamente (sem precisar recarregar)
 renderDailyAccrual();
 setInterval(() => { renderDailyAccrual(); renderSummary(); }, 60 * 60 * 1000);
+
+
+
+// ============ MOTOR DE PREÇOS — Brapi + Yahoo Finance + Tesouro ============
+
+const priceCache = {}; // { ticker: { price, currency, source, ts } }
+
+// Detectar tipo de ativo pelo ticker
+function detectAssetType(ticker) {
+  const t = ticker.toUpperCase().trim();
+  if (/^(LTN|NTNB|NTNF|LFT|TESOURO)/i.test(t)) return 'tesouro';
+  if (t.endsWith('.SA') || /^[A-Z]{4}[0-9]{1,2}$/.test(t)) return 'br';
+  if (/^[A-Z]{1,5}$/.test(t)) return 'us';
+  return 'br'; // fallback
+}
+
+// Normalizar ticker para busca
+function normalizeTicker(ticker) {
+  const t = ticker.toUpperCase().trim();
+  const type = detectAssetType(t);
+  if (type === 'br') return t.endsWith('.SA') ? t : t + '.SA';
+  return t;
+}
+
+// Brapi — ações e ETFs BR
+async function fetchBrapi(ticker) {
+  const t = ticker.replace('.SA', '');
+  try {
+    const r = await fetch(`https://brapi.dev/api/quote/${t}?range=1d&interval=1d&fundamental=false`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const q = d.results?.[0];
+    if (!q?.regularMarketPrice) throw new Error('sem preço');
+    return { price: q.regularMarketPrice, currency: 'BRL', source: 'Brapi', name: q.longName || t };
+  } catch(e) {
+    throw new Error(`Brapi: ${e.message}`);
+  }
+}
+
+// Yahoo Finance — ações EUA e fallback BR
+async function fetchYahoo(ticker) {
+  try {
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const meta = d.chart?.result?.[0]?.meta;
+    if (!meta?.regularMarketPrice) throw new Error('sem preço');
+    return {
+      price: meta.regularMarketPrice,
+      currency: meta.currency || 'USD',
+      source: 'Yahoo Finance',
+      name: meta.longName || meta.symbol || ticker,
+    };
+  } catch(e) {
+    throw new Error(`Yahoo: ${e.message}`);
+  }
+}
+
+// Tesouro Direto — preços oficiais
+async function fetchTesouro(ticker) {
+  try {
+    const r = await fetch('https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/ntnb/paper/search.json');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const titulos = d.response?.TrsrBdTradgList || [];
+    const t = ticker.toUpperCase();
+    const found = titulos.find(x => {
+      const nome = (x.TrsrBd?.nm || '').toUpperCase();
+      return nome.includes('IPCA') || nome.includes(t.replace('NTNB','').replace('TESOURO','').trim());
+    });
+    if (found?.TrsrBd?.untrRedVal) {
+      return { price: found.TrsrBd.untrRedVal, currency: 'BRL', source: 'Tesouro Direto', name: found.TrsrBd.nm };
+    }
+    throw new Error('título não encontrado');
+  } catch(e) {
+    throw new Error(`Tesouro: ${e.message}`);
+  }
+}
+
+// Função principal — tenta fontes em cascata
+async function fetchPrice(tickerRaw) {
+  const ticker = tickerRaw.trim();
+  const now = Date.now();
+
+  // Cache de 15 minutos
+  if (priceCache[ticker] && (now - priceCache[ticker].ts) < 15 * 60 * 1000) {
+    return priceCache[ticker];
+  }
+
+  const type = detectAssetType(ticker);
+  let result = null;
+  let errors = [];
+
+  if (type === 'tesouro') {
+    try { result = await fetchTesouro(ticker); } catch(e) { errors.push(e.message); }
+  } else if (type === 'br') {
+    try { result = await fetchBrapi(ticker); } catch(e) {
+      errors.push(e.message);
+      try { result = await fetchYahoo(normalizeTicker(ticker)); } catch(e2) { errors.push(e2.message); }
+    }
+  } else { // us
+    try { result = await fetchYahoo(ticker); } catch(e) { errors.push(e.message); }
+  }
+
+  if (!result) throw new Error(errors.join(' | '));
+
+  result.ts = now;
+  result.tickerRaw = tickerRaw;
+  priceCache[ticker] = result;
+  return result;
+}
+
+// Estado de preços por posição
+const positionPrices = {}; // { idx: { price, marketValue, pnl, pnlPct, source, currency } }
+
+async function refreshAllPrices() {
+  const btn = document.getElementById('refreshPricesBtn');
+  if (btn) { btn.textContent = '…'; btn.style.pointerEvents = 'none'; }
+
+  const positions = state.positions;
+  const usdRate = parseNumBR(document.getElementById('wiseUsdRate')?.value || '5.0777');
+
+  const promises = positions.map(async (p, idx) => {
+    if (!p.ticker || p.ticker === '—') return;
+    const category = p.category || '';
+    // RF sem preço de mercado dinâmico — pula (rendimento calculado pelo daily accrual)
+    if (category === 'rf_selic' || category === 'rf_ipca') {
+      positionPrices[idx] = {
+        price: null, marketValue: p.value, pnl: 0, pnlPct: 0,
+        source: 'Fixo', currency: 'BRL', note: 'RF — rendimento calculado pela taxa'
+      };
+      return;
+    }
+    try {
+      const result = await fetchPrice(p.ticker);
+      const qtd = p.qtd || 0;
+      const precoCompra = p.preco || 0;
+      const investido = p.value || (qtd * precoCompra) || 0;
+      let priceInBrl = result.price;
+      if (result.currency === 'USD') priceInBrl = result.price * usdRate;
+      const marketValue = qtd > 0 ? qtd * priceInBrl : investido; // se não tem qtd, usa valor investido
+      const pnl = qtd > 0 ? marketValue - investido : 0;
+      const pnlPct = investido > 0 ? (pnl / investido * 100) : 0;
+      positionPrices[idx] = { price: result.price, priceInBrl, marketValue, pnl, pnlPct, source: result.source, currency: result.currency, name: result.name };
+    } catch(e) {
+      positionPrices[idx] = { price: null, marketValue: p.value, pnl: 0, pnlPct: 0, source: 'Erro', error: e.message };
+    }
+  });
+
+  await Promise.all(promises);
+  renderPositions();
+
+  if (btn) { btn.textContent = '↻'; btn.style.pointerEvents = ''; }
+}
+
+// Reescrever renderPositions com P&L e preço de mercado
+function renderPositions() {
+  const body = document.getElementById("positionsBody");
+  if (!body) return;
+  const positions = state.positions;
+  const total = positions.reduce((s, p) => s + (p.value || 0), 0);
+
+  document.getElementById("metricTotal").textContent = fmtBRL(total);
+  document.getElementById("metricPositions").textContent = positions.length;
+  const byCategory = { rv_int: 0, rv_br: 0, rf_ipca: 0, rf_selic: 0 };
+  positions.forEach(p => { byCategory[p.category] = (byCategory[p.category] || 0) + (p.value || 0); });
+  const rvPct = total > 0 ? ((byCategory.rv_int + byCategory.rv_br) / total * 100) : 0;
+  const rfPct = total > 0 ? ((byCategory.rf_ipca + byCategory.rf_selic) / total * 100) : 0;
+  document.getElementById("metricRV").textContent = `${rvPct.toFixed(1)}%`;
+  document.getElementById("metricRF").textContent = `${rfPct.toFixed(1)}%`;
+
+  if (!positions.length) {
+    body.innerHTML = `<tr><td colspan="9" class="text-center text-neutral-600 py-6">Nenhuma posição. Clique em "+ Adicionar".</td></tr>`;
+    return;
+  }
+
+  const totalMercado = positions.reduce((s, p, i) => s + (positionPrices[i]?.marketValue || p.value || 0), 0);
+
+  body.innerHTML = positions.map((p, idx) => {
+    const s = state.strategy[p.category] || {};
+    const pct = total > 0 ? (p.value / total * 100) : 0;
+    const pp = positionPrices[idx];
+    const marketVal = pp ? pp.marketValue : p.value;
+    const pnl = pp ? pp.pnl : 0;
+    const pnlPct = pp ? pp.pnlPct : 0;
+    const pnlColor = pnl >= 0 ? '#86efac' : '#fca5a5';
+    const sourceTag = pp?.source ? `<span class="text-neutral-600 text-xs"> [${pp.source}]</span>` : '';
+    const priceTag = pp?.price ? `<div class="text-xs text-neutral-500">${pp.currency} ${fmtNumBR(pp.price, 2)}</div>` : '';
+    const errorTag = pp?.error ? `<div class="text-xs text-red-500" title="${pp.error}">⚠</div>` : '';
+
+    return `<tr>
+      <td>
+        <div class="text-white font-semibold">${escapeHtml(p.ticker)}</div>
+        ${priceTag}${errorTag}
+      </td>
+      <td><span class="pill ${s.pill||''}">${s.name||p.category}</span></td>
+      <td class="text-right">${fmtBRL(p.value)}</td>
+      <td class="text-right text-white">${fmtBRL(marketVal)}${sourceTag}</td>
+      <td class="text-right font-semibold" style="color:${pnlColor}">${pnl !== 0 ? (pnl>0?'+':'')+fmtBRL(pnl) : '—'}</td>
+      <td class="text-right" style="color:${pnlColor}">${pnlPct !== 0 ? (pnlPct>0?'+':'')+pnlPct.toFixed(2)+'%' : '—'}</td>
+      <td class="text-right text-neutral-400">${pct.toFixed(1)}%</td>
+      <td class="text-neutral-500">${p.date || "—"}</td>
+      <td class="text-right"><button class="danger text-xs" data-del="${idx}">×</button></td>
+    </tr>`;
+  }).join("");
+
+  body.querySelectorAll("[data-del]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.del, 10);
+      if (confirm(`Remover "${state.positions[idx].ticker}"?`)) {
+        state.positions.splice(idx, 1);
+        delete positionPrices[idx];
+        save(); renderAll();
+      }
+    });
+  });
+
+  // Atualizar total de mercado no metric
+  document.getElementById("metricTotal").textContent = fmtBRL(totalMercado) + ' mercado';
+}
+
+// Salvar qtd e preco na posição
+const origSavePosition = document.getElementById('savePositionBtn');
+
+// Listener do botão de refresh
+document.addEventListener('click', e => {
+  if (e.target.id === 'refreshPricesBtn' || e.target.closest('#refreshPricesBtn')) {
+    refreshAllPrices();
+  }
+});
+
+// Auto-refresh quando posições são carregadas
+setTimeout(() => {
+  if (state.positions.length > 0) refreshAllPrices();
+}, 1500);
 
 </script>
 
