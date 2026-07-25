@@ -146,7 +146,7 @@
           <span>🇺🇸</span>
           <span class="text-xs text-neutral-500 uppercase tracking-wider">Wise USD</span>
         </div>
-        <div id="sumUsdTotal" class="text-2xl font-bold text-white">$ 102,97</div>
+        <div id="sumUsdTotal" class="text-2xl font-bold text-white">$ 102,99</div>
         <div class="flex items-center justify-between text-xs">
           <span class="text-neutral-500">Rendeu este mês (Wise)</span>
           <span id="sumUsdMes" class="text-green-400 font-semibold">+ $0,22</span>
@@ -155,14 +155,14 @@
           <span class="text-neutral-500">Est. mês completo</span>
           <span id="sumUsdMensal" class="text-neutral-400">$0,29 ≈ R$ 1,48</span>
         </div>
-        <div id="sumUsdBrl" class="text-xs text-neutral-600">≈ R$ 522,55 (@5,0777)</div>
+        <div id="sumUsdBrl" class="text-xs text-neutral-600">≈ R$ 522,95 (@5,0777)</div>
       </div>
       <div class="bg-[#0a0a0a] border border-[#1f1f1f] rounded p-3 space-y-2">
         <div class="flex items-center gap-2">
           <span>🇪🇺</span>
           <span class="text-xs text-neutral-500 uppercase tracking-wider">Wise EUR</span>
         </div>
-        <div id="sumEurTotal" class="text-2xl font-bold text-white">€ 3.014,69</div>
+        <div id="sumEurTotal" class="text-2xl font-bold text-white">€ 3.014,87</div>
         <div class="flex items-center justify-between text-xs">
           <span class="text-neutral-500">Rendeu este mês (Wise)</span>
           <span id="sumEurMes" class="text-green-400 font-semibold">+ €1,27</span>
@@ -171,13 +171,13 @@
           <span class="text-neutral-500">Est. mês completo</span>
           <span id="sumEurMensal" class="text-neutral-400">€4,97 ≈ R$ 28,84</span>
         </div>
-        <div id="sumEurBrl" class="text-xs text-neutral-600">≈ R$ 17.476,46 (@5,7971)</div>
+        <div id="sumEurBrl" class="text-xs text-neutral-600">≈ R$ 17.477,50 (@5,7971)</div>
       </div>
     </div>
     <div class="border-t border-[#1f1f1f] pt-3 flex flex-wrap items-center justify-between gap-3">
       <div>
         <div class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Total Geral em BRL</div>
-        <div id="sumTotalBrl" class="text-3xl font-bold" style="color:var(--accent);">R$ 120.966,42</div>
+        <div id="sumTotalBrl" class="text-3xl font-bold" style="color:var(--accent);">R$ 120.967,57</div>
         <div class="text-xs text-neutral-500 mt-1">Inter + Wise USD + Wise EUR convertidos</div>
       </div>
       <div class="text-right">
@@ -360,7 +360,7 @@
             <input type="text" inputmode="decimal" id="interSaldo" value="102.967,11" />
           </div>
           <div>
-            <label class="block text-xs text-neutral-500 mb-1">Já rendeu (R$)</label>
+            <label class="block text-xs text-neutral-500 mb-1">Já rendeu total (R$)</label>
             <input type="text" inputmode="decimal" id="interJaRendeu" value="4.967,11" />
           </div>
           <div>
@@ -370,6 +370,16 @@
           <div>
             <label class="block text-xs text-neutral-500 mb-1">IR (%)</label>
             <input type="text" inputmode="decimal" id="interIR" value="15" />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Data de início (para cálculo diário)</label>
+            <input type="date" id="interDataInicio" value="2025-09-01" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Principal original (R$)</label>
+            <input type="text" inputmode="decimal" id="interPrincipal" value="98.000,00" />
           </div>
         </div>
         <div id="interResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
@@ -427,7 +437,7 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Saldo atual (USD)</label>
-            <input type="text" inputmode="decimal" id="wiseUsdSaldo" value="102,97" />
+            <input type="text" inputmode="decimal" id="wiseUsdSaldo" value="102,99" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Rendeu este mês (USD)</label>
@@ -441,6 +451,10 @@
             <label class="block text-xs text-neutral-500 mb-1">USD/BRL</label>
             <input type="text" inputmode="decimal" id="wiseUsdRate" value="5,0777" />
           </div>
+        </div>
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Data de início Rende+ USD</label>
+          <input type="date" id="wiseUsdInicio" value="2026-02-01" />
         </div>
         <div id="wiseUsdResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
         <div class="border-t border-[#1f1f1f] pt-2 space-y-2">
@@ -481,11 +495,11 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Saldo atual (EUR)</label>
-            <input type="text" inputmode="decimal" id="wiseEurSaldo" value="3.014,69" />
+            <input type="text" inputmode="decimal" id="wiseEurSaldo" value="3.014,87" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Rendeu este mês (EUR)</label>
-            <input type="text" inputmode="decimal" id="wiseEurRendeu" value="4,97" />
+            <input type="text" inputmode="decimal" id="wiseEurRendeu" value="1,27" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. (%)</label>
@@ -495,6 +509,10 @@
             <label class="block text-xs text-neutral-500 mb-1">EUR/BRL</label>
             <input type="text" inputmode="decimal" id="wiseEurRate" value="5,7971" />
           </div>
+        </div>
+        <div>
+          <label class="block text-xs text-neutral-500 mb-1">Data de início Rende+ EUR</label>
+          <input type="date" id="wiseEurInicio" value="2025-12-01" />
         </div>
         <div id="wiseEurResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
         <div class="border-t border-[#1f1f1f] pt-2 space-y-2">
@@ -1576,8 +1594,13 @@ function renderRenda() {
     });
   }
 
+  // Taxas de mercado atualizadas 24/07/2026:
+  // RV Int: retorno histórico S&P500 em BRL ~12% (conservador). VARIÁVEL - não é garantido.
+  // RV BR:  retorno histórico Ibovespa ~13% a.a. VARIÁVEL - não é garantido.  
+  // RF IPCA+: Tesouro IPCA+2035 = IPCA(4,64%) + 8,33% = ~12,97% bruto
+  // RF CDB/Selic: CDI 14,15% / Selic 14,25%
   const yieldsConfig = typeof yieldsState !== 'undefined' ? yieldsState : {
-    rv_int:{yield:8,ir:15}, rv_br:{yield:12,ir:15}, rf_ipca:{yield:11.5,ir:15}, rf_selic:{yield:14.25,ir:15}
+    rv_int:{yield:12,ir:15}, rv_br:{yield:13,ir:15}, rf_ipca:{yield:12.97,ir:15}, rf_selic:{yield:14.15,ir:15}
   };
   const strategyNames = typeof DEFAULT_STRATEGY !== 'undefined' ? DEFAULT_STRATEGY : {
     rv_int:{name:'RV Internacional',pill:'pill-rv-int'},
@@ -1657,7 +1680,7 @@ function renderRenda() {
   } catch(e) {}
 }
 
-const DEPLOY_VERSION = '20260723_v1';
+const DEPLOY_VERSION = '20260724_v1';
 function loadSimulador() {
   // Limpar cotações antigas do localStorage antes de carregar
   try {
@@ -1720,20 +1743,57 @@ if (rendaBaseValorEl) {
 }
 
 // Botão editar taxas
+// ===== YIELDS STATE — taxas dos buckets persistidas =====
+// Taxas de mercado 24/07/2026:
+// RF CDB/Selic: CDI 14,15% | RF IPCA+: IPCA(4,64%)+8,33% = 12,97%
+// RV BR: retorno histórico Ibovespa ~13% a.a. (VARIÁVEL)
+// RV Int: retorno histórico S&P500 em BRL ~12% a.a. (VARIÁVEL)
+let yieldsState = {
+  rv_int: { yield: 12.00, ir: 15, label: 'RV Internacional', note: 'Retorno hist. S&P500 em BRL — VARIÁVEL' },
+  rv_br:  { yield: 13.00, ir: 15, label: 'RV Brasil',        note: 'Retorno hist. Ibovespa — VARIÁVEL' },
+  rf_ipca:{ yield: 12.97, ir: 15, label: 'RF IPCA+',         note: 'Tesouro IPCA+2035: IPCA+8,33% (jul/2026)' },
+  rf_selic:{ yield:14.15, ir: 15, label: 'RF CDB/Selic',     note: 'CDI 14,15% (Selic 14,25%, jul/2026)' },
+};
+
+function loadYields() {
+  try {
+    const raw = localStorage.getItem('fin_trader_yields_v1');
+    if (raw) {
+      const d = JSON.parse(raw);
+      Object.keys(yieldsState).forEach(k => {
+        if (d[k]?.yield) yieldsState[k].yield = d[k].yield;
+        if (d[k]?.ir) yieldsState[k].ir = d[k].ir;
+      });
+    }
+  } catch(e) {}
+}
+function saveYields() {
+  try { localStorage.setItem('fin_trader_yields_v1', JSON.stringify(yieldsState)); } catch(e) {}
+}
+
 const editYieldsBtn = document.getElementById('editYields');
 if (editYieldsBtn) {
   editYieldsBtn.addEventListener('click', () => {
-    const cats2 = ['rv_int','rv_br','rf_ipca','rf_selic'];
-    const ys = typeof yieldsState !== 'undefined' ? yieldsState : {};
-    const current = cats2.map(k => fmtNumBR(ys[k]?.yield||10)).join(', ');
-    const input = prompt(`Taxas anuais brutas (RV Int, RV BR, RF IPCA+, RF Selic):\n\nAtual: ${current}`, current);
+    const cats = ['rv_int','rv_br','rf_ipca','rf_selic'];
+    const lines = cats.map(k => {
+      const y = yieldsState[k];
+      return `${y.label}: ${fmtNumBR(y.yield)}% a.a. (${y.note})`;
+    }).join('\n');
+    const vals = cats.map(k => fmtNumBR(yieldsState[k].yield)).join(', ');
+    const input = prompt(
+      `Taxas anuais brutas — RV são estimativas históricas variáveis!\n\n${lines}\n\nDigite as 4 taxas separadas por vírgula:`,
+      vals
+    );
     if (!input) return;
     const parts = input.split(',').map(s => parseNumBR(s.trim()));
-    if (parts.length !== 4 || parts.some(n => isNaN(n))) return alert('Formato inválido.');
-    if (typeof yieldsState !== 'undefined') cats2.forEach((k,i) => yieldsState[k].yield = parts[i]);
+    if (parts.length !== 4 || parts.some(n => isNaN(n) || n <= 0)) return alert('Formato inválido. Use: 12, 13, 12.97, 14.15');
+    cats.forEach((k, i) => yieldsState[k].yield = parts[i]);
+    saveYields();
     renderRenda();
+    renderSummary();
   });
 }
+loadYields();
 
 const _origRenderRenda2 = renderRenda;
 renderRenda = function() {
@@ -3092,8 +3152,8 @@ function renderSummary() {
   const fbrl = v => 'R$ ' + fmtNumBR(v);
 
   const iS = g('interSaldo')||102967.11, iT = g('interTaxa')||14.25, iR = g('interIR')||15;
-  const uS = g('wiseUsdSaldo')||102.97, uRend = g('wiseUsdRendeu'), uT = g('wiseUsdTaxa')||3.39, uRate = g('wiseUsdRate')||5.0777;
-  const eS = g('wiseEurSaldo')||3014.69, eRend = g('wiseEurRendeu'), eT = g('wiseEurTaxa')||1.98, eRate = g('wiseEurRate')||5.7971;
+  const uS = g('wiseUsdSaldo')||102.99, uRend = g('wiseUsdRendeu'), uT = g('wiseUsdTaxa')||3.39, uRate = g('wiseUsdRate')||5.0777;
+  const eS = g('wiseEurSaldo')||3014.87, eRend = g('wiseEurRendeu'), eT = g('wiseEurTaxa')||1.98, eRate = g('wiseEurRate')||5.7971;
 
   const iMen = iS * iT / 100 / 12 * (1 - iR/100);
   const uMen = uS * uT / 100 / 12;
@@ -3123,6 +3183,143 @@ function renderSummary() {
 
 // renderSummary é chamada automaticamente via wrapper no renderRenda
 
+
+
+// ============ RENDIMENTO DIÁRIO AUTOMÁTICO ============
+// Calcula quanto rendeu desde a data de início até hoje
+// Sem precisar atualizar manualmente — atualiza ao abrir a página
+
+function diasUteisEntre(inicio, fim) {
+  // Conta dias corridos (CDI/Wise acumula em dias corridos, não úteis)
+  // Para simplificação usamos dias corridos / 365
+  return Math.max(0, (fim - inicio) / (1000 * 60 * 60 * 24));
+}
+
+function rendimentoAcumulado(principal, taxa_aa, dias) {
+  // Juros compostos diários: (1 + taxa_aa/365)^dias - 1
+  return principal * (Math.pow(1 + taxa_aa/100/365, dias) - 1);
+}
+
+function rendimentoMesAtual(principal, taxa_aa) {
+  // Do início do mês corrente até hoje
+  const hoje = new Date();
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const dias = diasUteisEntre(inicioMes, hoje);
+  return rendimentoAcumulado(principal, taxa_aa, dias);
+}
+
+function renderDailyAccrual() {
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+
+  // ---- INTER ----
+  const interPrincipal = parseNumBR(document.getElementById('interPrincipal')?.value || '98000');
+  const interTaxa = parseNumBR(document.getElementById('interTaxa')?.value || '14.25');
+  const interIR = parseNumBR(document.getElementById('interIR')?.value || '15');
+  const interInicio = document.getElementById('interDataInicio')?.value;
+  const interSaldo = parseNumBR(document.getElementById('interSaldo')?.value || '0');
+
+  if (interInicio) {
+    const dtInicio = new Date(interInicio + 'T00:00:00');
+    const diasTotal = diasUteisEntre(dtInicio, hoje);
+    const rendTotal = rendimentoAcumulado(interPrincipal, interTaxa, diasTotal);
+    const rendMes = rendimentoMesAtual(interSaldo, interTaxa);
+    const rendTotalLiq = rendTotal * (1 - interIR/100);
+    const rendMesLiq = rendMes * (1 - interIR/100);
+    const rendHoje = rendimentoAcumulado(interSaldo, interTaxa, 1) * (1 - interIR/100);
+
+    // Atualizar o campo "Já rendeu" automaticamente
+    const jaRendeuEl = document.getElementById('interJaRendeu');
+    if (jaRendeuEl && !jaRendeuEl._userEdited) {
+      jaRendeuEl.value = fmtNumBR(rendTotal, 2);
+    }
+
+    const res = document.getElementById('interResult');
+    if (res) res.innerHTML =
+      `<b class="text-white">R$ ${fmtNumBR(interSaldo)}</b> × ${fmtNumBR(interTaxa)}% a.a. → ` +
+      `Mensal líq.: <b style="color:var(--accent)">R$ ${fmtNumBR(rendMesLiq)}</b> · ` +
+      `Anual: R$ ${fmtNumBR(interSaldo * interTaxa/100 * (1-interIR/100))} · ` +
+      `<span class="text-green-300">Hoje rendeu: +R$ ${fmtNumBR(rendHoje, 2)}</span> · ` +
+      `<span class="text-yellow-400">Total desde ${interInicio}: R$ ${fmtNumBR(rendTotalLiq)}</span>`;
+  }
+
+  // ---- WISE USD ----
+  const usdSaldo = parseNumBR(document.getElementById('wiseUsdSaldo')?.value || '0');
+  const usdTaxa = parseNumBR(document.getElementById('wiseUsdTaxa')?.value || '3.39');
+  const usdRate = parseNumBR(document.getElementById('wiseUsdRate')?.value || '5.08');
+  const usdInicio = document.getElementById('wiseUsdInicio')?.value;
+
+  if (usdInicio) {
+    const dtInicio = new Date(usdInicio + 'T00:00:00');
+    const diasTotal = diasUteisEntre(dtInicio, hoje);
+    const rendTotal = rendimentoAcumulado(usdSaldo, usdTaxa, diasTotal);
+    const rendMes = rendimentoMesAtual(usdSaldo, usdTaxa);
+    const rendHoje = rendimentoAcumulado(usdSaldo, usdTaxa, 1);
+
+    const usdRendeuEl = document.getElementById('wiseUsdRendeu');
+    if (usdRendeuEl && !usdRendeuEl._userEdited) {
+      usdRendeuEl.value = fmtNumBR(rendMes, 2);
+    }
+
+    const res = document.getElementById('wiseUsdResult');
+    if (res) res.innerHTML =
+      `<b class="text-white">$${fmtNumBR(usdSaldo)}</b>` +
+      ` (≈ R$ ${fmtNumBR(usdSaldo*usdRate)} @ ${fmtNumBR(usdRate,4)}) × ${fmtNumBR(usdTaxa)}% a.a. → ` +
+      `Mensal: <b style="color:var(--accent)">$${fmtNumBR(rendMes, 2)} ≈ R$ ${fmtNumBR(rendMes*usdRate)}</b> · ` +
+      `<span class="text-green-300">Hoje: +$${fmtNumBR(rendHoje, 4)}</span> · ` +
+      `<span class="text-yellow-400">Acum. desde ${usdInicio}: $${fmtNumBR(rendTotal, 2)}</span>`;
+  }
+
+  // ---- WISE EUR ----
+  const eurSaldo = parseNumBR(document.getElementById('wiseEurSaldo')?.value || '0');
+  const eurTaxa = parseNumBR(document.getElementById('wiseEurTaxa')?.value || '1.98');
+  const eurRate = parseNumBR(document.getElementById('wiseEurRate')?.value || '5.80');
+  const eurInicio = document.getElementById('wiseEurInicio')?.value;
+
+  if (eurInicio) {
+    const dtInicio = new Date(eurInicio + 'T00:00:00');
+    const diasTotal = diasUteisEntre(dtInicio, hoje);
+    const rendTotal = rendimentoAcumulado(eurSaldo, eurTaxa, diasTotal);
+    const rendMes = rendimentoMesAtual(eurSaldo, eurTaxa);
+    const rendHoje = rendimentoAcumulado(eurSaldo, eurTaxa, 1);
+
+    const eurRendeuEl = document.getElementById('wiseEurRendeu');
+    if (eurRendeuEl && !eurRendeuEl._userEdited) {
+      eurRendeuEl.value = fmtNumBR(rendMes, 2);
+    }
+
+    const res = document.getElementById('wiseEurResult');
+    if (res) res.innerHTML =
+      `<b class="text-white">€${fmtNumBR(eurSaldo)}</b>` +
+      ` (≈ R$ ${fmtNumBR(eurSaldo*eurRate)} @ ${fmtNumBR(eurRate,4)}) × ${fmtNumBR(eurTaxa)}% a.a. → ` +
+      `Mensal: <b style="color:var(--accent)">€${fmtNumBR(rendMes, 2)} ≈ R$ ${fmtNumBR(rendMes*eurRate)}</b> · ` +
+      `<span class="text-green-300">Hoje: +€${fmtNumBR(rendHoje, 4)}</span> · ` +
+      `<span class="text-yellow-400">Acum. desde ${eurInicio}: €${fmtNumBR(rendTotal, 2)}</span>`;
+  }
+}
+
+// Marcar campo como editado pelo usuário (para não sobrescrever com cálculo automático)
+['interJaRendeu','wiseUsdRendeu','wiseEurRendeu'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', () => { el._userEdited = true; });
+});
+
+// Listeners para campos de data de início
+['interDataInicio','interPrincipal','wiseUsdInicio','wiseEurInicio'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', () => { renderDailyAccrual(); renderRenda(); renderSummary(); });
+});
+
+// Chamar na inicialização e integrar no wrapper do renderRenda
+const _origRenderRendaDailyWrap = renderRenda;
+renderRenda = function() {
+  _origRenderRendaDailyWrap.apply(this, arguments);
+  renderDailyAccrual();
+};
+
+// Atualizar a cada hora automaticamente (sem precisar recarregar)
+renderDailyAccrual();
+setInterval(() => { renderDailyAccrual(); renderSummary(); }, 60 * 60 * 1000);
 
 </script>
 
