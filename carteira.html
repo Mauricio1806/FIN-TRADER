@@ -3134,57 +3134,94 @@ fetchQuotes();
 // autoCleanStorage movido para dentro do loadSimulador
 
 function renderSummary() {
-  const g = id => parseNumBR(document.getElementById(id)?.value || '0');
-  const c = id => document.getElementById(id)?.checked !== false;
-  const s = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
-  const fbrl = v => 'R$ ' + fmtNumBR(v);
+  const g  = id => parseNumBR(document.getElementById(id)?.value || '0');
+  const c  = id => document.getElementById(id)?.checked !== false;
+  const s  = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+  const br = v => 'R$ ' + fmtNumBR(v);
 
-  const iS = g('interSaldo')||102967.11, iT = g('interTaxa')||14.25, iR = g('interIR')||15;
-  const uS = g('wiseUsdSaldo')||102.99, uRend = g('wiseUsdRendeu'), uT = g('wiseUsdTaxa')||3.39, uRate = g('wiseUsdRate')||5.0777;
-  const eS = g('wiseEurSaldo')||3015.77, eRend = g('wiseEurRendeu'), eT = g('wiseEurTaxa')||1.98, eRate = g('wiseEurRate')||5.7971;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const diasMes = Math.max(0, (hoje - inicioMes) / 86400000);
 
-  const iMen = iS * iT / 100 / 12 * (1 - iR/100);
-  const uMen = uS * uT / 100 / 12;
-  const eMen = eS * eT / 100 / 12;
+  // Rendimento acumulado desde dia 1 do mês até hoje
+  function rendMes(saldo, taxa_aa) {
+    return saldo * (Math.pow(1 + taxa_aa / 100 / 365, diasMes) - 1);
+  }
+  // Rendimento de 1 dia (hoje)
+  function rendHoje(saldo, taxa_aa) {
+    return saldo * (taxa_aa / 100 / 365);
+  }
 
-  const uBrl = uS * uRate, eBrl = eS * eRate;
+  // ---- INTER BRL (saldo atual já inclui todos os rendimentos anteriores) ----
+  const iS   = g('interSaldo') || 103183.66;
+  const iT   = g('interTaxa') || 14.25;
+  const iIR  = g('interIR')   || 15;
+  const iMes = rendMes(iS, iT)  * (1 - iIR/100);   // rendeu no mês líquido
+  const iHj  = rendHoje(iS, iT) * (1 - iIR/100);   // rendeu hoje líquido
+  const iMen = iS * iT / 100 / 12 * (1 - iIR/100); // estimativa mês completo
 
-  // Inter USD
-  const iUsdEnabled = c('interUsdEnabled');
-  const iUsdS    = g('interUsdSaldo') || 101.31;
-  const iUsdT    = g('interUsdTaxa')  || 3.39;
-  const iUsdRate = g('interUsdRate')  || 5.0777;
-  const iUsdBrl  = iUsdS * iUsdRate;
-  const iUsdMen  = iUsdS * iUsdT / 100 / 12;
+  // ---- WISE USD ----
+  const uS    = g('wiseUsdSaldo') || 103.04;
+  const uT    = g('wiseUsdTaxa')  || 3.39;
+  const uRate = g('wiseUsdRate')  || 5.0777;
+  const uMes  = rendMes(uS, uT);
+  const uHj   = rendHoje(uS, uT);
+  const uMen  = uS * uT / 100 / 12;
 
-  const total = (c('interEnabled') ? iS : 0)
-             + (iUsdEnabled ? iUsdBrl : 0)
-             + (c('wiseUsdEnabled') ? uBrl : 0)
-             + (c('wiseEurEnabled') ? eBrl : 0);
-  const renda = (c('interEnabled') ? iMen : 0)
-              + (iUsdEnabled ? iUsdMen*iUsdRate : 0)
-              + (c('wiseUsdEnabled') ? uMen*uRate : 0)
-              + (c('wiseEurEnabled') ? eMen*eRate : 0);
+  // ---- INTER USD ----
+  const iuS   = g('interUsdSaldo') || 101.31;
+  const iuT   = g('interUsdTaxa')  || 3.39;
+  const iuMen = iuS * iuT / 100 / 12;
+  const iuHj  = rendHoje(iuS, iuT);
 
-  s('sumBrlTotal',   fbrl(iS));
-  s('sumBrlMes',     fbrl(iMen));
-  s('sumBrlMensal',  fbrl(iMen*12) + '/ano');
-  // Card USD = Wise USD + Inter USD somados
-  const totalUsdUnits = uS + (document.getElementById('interUsdEnabled')?.checked !== false ? iUsdSaldo : 0);
-  const totalUsdBrl2  = uBrl + (document.getElementById('interUsdEnabled')?.checked !== false ? iUsdBrl : 0);
-  s('sumUsdTotal',   '$ ' + fmtNumBR(totalUsdUnits));
-  s('sumUsdMes',     '+ $' + fmtNumBR(uRend, 2));
-  s('sumUsdMensal',  '$' + fmtNumBR(uMen,2) + ' ≈ ' + fbrl(uMen*uRate));
-  s('sumUsdBrl',     '≈ ' + fbrl(uBrl) + ' (@' + fmtNumBR(uRate,4) + ')');
-  s('sumEurTotal',   '€ ' + fmtNumBR(eS));
-  s('sumEurMes',     '+ €' + fmtNumBR(eRend, 2));
-  s('sumEurMensal',  '€' + fmtNumBR(eMen,2) + ' ≈ ' + fbrl(eMen*eRate));
-  s('sumEurBrl',     '≈ ' + fbrl(eBrl) + ' (@' + fmtNumBR(eRate,4) + ')');
-  s('sumTotalBrl',   fbrl(total));
-  s('sumRendaMensal',fbrl(renda));
+  // ---- WISE EUR ----
+  const eS    = g('wiseEurSaldo') || 3015.77;
+  const eT    = g('wiseEurTaxa')  || 1.98;
+  const eRate = g('wiseEurRate')  || 5.7971;
+  const eMes  = rendMes(eS, eT);
+  const eHj   = rendHoje(eS, eT);
+  const eMen  = eS * eT / 100 / 12;
+
+  // ---- TOTAIS ----
+  const totalBrl = (c('interEnabled')   ? iS  : 0)
+                 + (c('wiseUsdEnabled')  ? uS  : 0) * uRate
+                 + (c('interUsdEnabled') ? iuS : 0) * uRate
+                 + (c('wiseEurEnabled')  ? eS  : 0) * eRate;
+
+  const rendaMensal = (c('interEnabled')   ? iMen         : 0)
+                    + (c('wiseUsdEnabled')  ? uMen * uRate  : 0)
+                    + (c('interUsdEnabled') ? iuMen * uRate : 0)
+                    + (c('wiseEurEnabled')  ? eMen * eRate  : 0);
+
+  const rendaHoje = (c('interEnabled')   ? iHj          : 0)
+                  + (c('wiseUsdEnabled')  ? uHj * uRate   : 0)
+                  + (c('interUsdEnabled') ? iuHj * uRate  : 0)
+                  + (c('wiseEurEnabled')  ? eHj * eRate   : 0);
+
+  // ---- CARD ----
+  s('sumBrlTotal',    br(iS));
+  s('sumBrlMes',      '+ ' + br(iMes) + ' este mês · hoje +' + br(iHj));
+  s('sumBrlMensal',   br(iMen) + '/mês est.');
+
+  s('sumUsdTotal',    '$ ' + fmtNumBR(uS + iuS));
+  s('sumUsdMes',      '+ $' + fmtNumBR(uMes, 3) + ' Wise este mês');
+  s('sumUsdMensal',   '$ ' + fmtNumBR(uMen + iuMen, 3) + '/mês est.');
+  s('sumUsdBrl',      'Inter $' + fmtNumBR(iuS) + ' + Wise $' + fmtNumBR(uS) + ' ≈ ' + br((uS+iuS)*uRate));
+
+  s('sumEurTotal',    '€ ' + fmtNumBR(eS));
+  s('sumEurMes',      '+ €' + fmtNumBR(eMes, 3) + ' este mês · hoje +€' + fmtNumBR(eHj, 3));
+  s('sumEurMensal',   '€ ' + fmtNumBR(eMen, 2) + '/mês est.');
+  s('sumEurBrl',      '≈ ' + br(eS * eRate) + ' (@' + fmtNumBR(eRate, 4) + ')');
+
+  s('sumTotalBrl',    br(totalBrl));
+  s('sumRendaMensal', br(rendaMensal));
+
+  // Linha extra: rendimento de hoje em destaque
+  const rendaHojeEl = document.getElementById('sumRendaHoje');
+  if (rendaHojeEl) rendaHojeEl.textContent = '+ ' + br(rendaHoje) + ' hoje';
 
   const t = document.getElementById('summaryTime');
-  if(t) t.textContent = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if (t) t.textContent = hoje.toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 }
 
 // renderSummary é chamada automaticamente via wrapper no renderRenda
@@ -3345,7 +3382,7 @@ renderRenda = function() {
 
 // Atualizar a cada hora automaticamente (sem precisar recarregar)
 renderDailyAccrual();
-setInterval(() => { renderDailyAccrual(); renderSummary(); }, 60 * 60 * 1000);
+setInterval(() => { renderDailyAccrual(); renderSummary(); }, 60 * 1000); // atualiza a cada minuto
 
 
 
