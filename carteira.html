@@ -373,7 +373,7 @@
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. bruta (%)</label>
-            <input type="text" inputmode="decimal" id="interTaxa" value="14,25" />
+            <input type="text" inputmode="decimal" id="interTaxa" value="14,00" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">IR (%)</label>
@@ -1613,7 +1613,7 @@ function renderRenda() {
   // RF IPCA+: Tesouro IPCA+2035 = IPCA(4,64%) + 8,33% = ~12,97% bruto
   // RF CDB/Selic: CDI 14,15% / Selic 14,25%
   const yieldsConfig = typeof yieldsState !== 'undefined' ? yieldsState : {
-    rv_int:{yield:12,ir:15}, rv_br:{yield:13,ir:15}, rf_ipca:{yield:12.97,ir:15}, rf_selic:{yield:14.15,ir:15}
+    rv_int:{yield:12,ir:15}, rv_br:{yield:13,ir:15}, rf_ipca:{yield:12.97,ir:15}, rf_selic:{yield:14.00,ir:15}
   };
   const strategyNames = typeof DEFAULT_STRATEGY !== 'undefined' ? DEFAULT_STRATEGY : {
     rv_int:{name:'RV Internacional',pill:'pill-rv-int'},
@@ -1690,7 +1690,7 @@ localStorage.setItem('fin_trader_sim_v3', JSON.stringify({
   } catch(e) {}
 }
 
-const DEPLOY_VERSION = '20260802_v1';
+const DEPLOY_VERSION = '20260802_v2';
 function loadSimulador() {
   // Saldos SEMPRE vêm do HTML — nunca do localStorage
   // localStorage só guarda preferências (checkboxes)
@@ -3167,7 +3167,7 @@ function renderSummary() {
   // Saldo de referência: R$ 103.346,35 confirmado em 01/08/2026
   const iSaldoRef = g('interSaldo')         || 103346.35;
   const iDataRef  = document.getElementById('interDataInicio')?.value || '2026-08-01';
-  const iT        = g('interTaxa')          || 14.25;
+  const iT        = g('interTaxa')          || 14.00;
   const iIR       = g('interIR')            || 15;
   const iSaldo    = saldoAtual(iSaldoRef, iT, iDataRef);
   const iMes      = rendMes(iSaldo, iT)  * (1 - iIR/100);
