@@ -485,7 +485,7 @@
         <div>
           <button id="avenueAddBtn" class="secondary text-xs">+ Adicionar ativo (VOO, SCHD, VNQ...)</button>
         </div>
-        <div id="avenueForm" class="hidden grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div id="avenueForm" class="hidden" style="display:none;grid-template-columns:repeat(2,1fr);gap:0.5rem;">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Ticker</label>
             <input type="text" id="avenueTicker" placeholder="Ex: VOO, SCHD, VNQ" style="text-transform:uppercase;" />
@@ -2153,16 +2153,15 @@ if (editYieldsBtn) {
     renderSummary();
   });
 }
-loadYields();
+// loadYields chamado no init principal
 
 const _origRenderRenda2 = renderRenda;
 renderRenda = function() {
   _origRenderRenda2.apply(this, arguments);
   renderSummary();
 };
-loadSimulador();
-renderRenda();
-renderSummary();
+// Init diferido — garante que todos os wrappers e funções estejam prontos
+// loadSimulador, renderRenda e renderSummary são chamados no final do script
 
 // ============ EVOLUÇÃO DA CARTEIRA (GRÁFICO) ============
 let chartTab = "investido";
@@ -4182,11 +4181,11 @@ const avenueCancelBtn = document.getElementById('avenueCancelBtn');
 const avenueFormEl    = document.getElementById('avenueForm');
 
 if (avenueAddBtn) avenueAddBtn.addEventListener('click', () => {
-  avenueFormEl.classList.toggle('hidden');
+  avenueFormEl.style.display = avenueFormEl.style.display === "none" || !avenueFormEl.style.display ? "grid" : "none";
   document.getElementById('avenueTicker')?.focus();
 });
 if (avenueCancelBtn) avenueCancelBtn.addEventListener('click', () => {
-  avenueFormEl.classList.add('hidden');
+  avenueFormEl.style.display = 'none';
 });
 if (avenueSaveBtn) avenueSaveBtn.addEventListener('click', () => {
   const ticker   = (document.getElementById('avenueTicker')?.value || '').trim().toUpperCase();
@@ -4196,7 +4195,7 @@ if (avenueSaveBtn) avenueSaveBtn.addEventListener('click', () => {
   if (!ticker || qtd <= 0 || preco <= 0) return alert('Preencha ticker, quantidade e preço.');
   avenueAtivos.push({ ticker, qtd, preco, divYield });
   saveAvenue(); renderAvenue();
-  avenueFormEl.classList.add('hidden');
+  avenueFormEl.style.display = 'none';
   ['avenueTicker','avenueQtd','avenuePreco','avenueDivYield'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
@@ -4226,6 +4225,13 @@ renderSummary = function() {
 
 loadAvenue();
 renderAvenue();
+
+// ===== INIT PRINCIPAL — executa após todos os wrappers e funções =====
+loadYields();
+loadSimulador();
+renderAll();
+renderDailyAccrual();
+renderSummary();
 </script>
 
 </body>
