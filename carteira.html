@@ -464,6 +464,62 @@
         <div id="interUsdResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
       </div>
 
+
+      <!-- BLOCO A3: AVENUE / NOMAD — INVESTIMENTOS USD -->
+      <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="pill" style="background:rgba(59,130,246,0.15);color:#93c5fd;">Avenue / Nomad</span>
+            <span class="text-xs text-neutral-500">Carteira em USD — ETFs e dividendos internacionais</span>
+          </div>
+          <label class="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
+            <input type="checkbox" id="avenueEnabled" checked style="width:16px;height:16px;">
+            Incluir no total
+          </label>
+        </div>
+
+        <!-- Ativos -->
+        <div id="avenueAtivos" class="space-y-2"></div>
+
+        <!-- Adicionar ativo -->
+        <div>
+          <button id="avenueAddBtn" class="secondary text-xs">+ Adicionar ativo (VOO, SCHD, VNQ...)</button>
+        </div>
+        <div id="avenueForm" class="hidden grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Ticker</label>
+            <input type="text" id="avenueTicker" placeholder="Ex: VOO, SCHD, VNQ" style="text-transform:uppercase;" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Qtd. cotas</label>
+            <input type="number" id="avenueQtd" placeholder="Ex: 2" min="0" step="0.001" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Preço médio (USD)</label>
+            <input type="number" id="avenuePreco" placeholder="Ex: 540" min="0" step="0.01" />
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-500 mb-1">Div. anual (% est.)</label>
+            <input type="number" id="avenueDivYield" placeholder="Ex: 3.5" min="0" step="0.01" />
+          </div>
+          <div class="col-span-2 sm:col-span-4 flex gap-2 justify-end">
+            <button id="avenueSaveBtn" class="text-xs">Adicionar</button>
+            <button id="avenueCancelBtn" class="secondary text-xs">Cancelar</button>
+          </div>
+        </div>
+
+        <!-- Cotação USD para conversão -->
+        <div class="flex items-center gap-2 text-xs text-neutral-500 border-t border-[#1f1f1f] pt-2">
+          <span>USD/BRL para conversão:</span>
+          <input type="text" inputmode="decimal" id="avenueUsdRate" value="5,0777"
+            style="width:80px;padding:0.25rem 0.4rem;font-size:0.8rem;" />
+          <span class="text-neutral-600">— usa a mesma cotação dos outros blocos</span>
+        </div>
+
+        <!-- Resultado -->
+        <div id="avenueResult" class="border-t border-[#1f1f1f] pt-2 text-sm text-neutral-400"></div>
+      </div>
+
       <!-- BLOCO B: WISE USD -->
       <div class="border border-[#1f1f1f] rounded p-3 bg-[#0d0d0d] space-y-3">
         <div class="flex items-center justify-between flex-wrap gap-2">
@@ -3987,6 +4043,189 @@ function calcSimAlocacao() {
 }
 // Inicializar simulador
 if (document.getElementById('simAporte')) calcSimAlocacao();
+
+
+// ============ AVENUE / NOMAD — CARTEIRA USD ============
+let avenueAtivos = [];
+
+function loadAvenue() {
+  try {
+    const d = JSON.parse(localStorage.getItem('fin_trader_avenue_v1') || '[]');
+    if (Array.isArray(d)) avenueAtivos = d;
+  } catch(e) {}
+}
+
+function saveAvenue() {
+  try {
+    localStorage.setItem('fin_trader_avenue_v1', JSON.stringify(avenueAtivos));
+  } catch(e) {}
+}
+
+function getAvenueUsdRate() {
+  return parseNumBR(document.getElementById('avenueUsdRate')?.value || '5.0777') || 5.0777;
+}
+
+function renderAvenue() {
+  const container = document.getElementById('avenueAtivos');
+  const resultEl  = document.getElementById('avenueResult');
+  if (!container) return;
+
+  const usdRate = getAvenueUsdRate();
+
+  if (!avenueAtivos.length) {
+    container.innerHTML = `<div class="text-xs text-neutral-600 py-1">Nenhum ativo cadastrado. Clique em "+ Adicionar" para começar com VOO, SCHD ou VNQ.</div>`;
+    if (resultEl) resultEl.innerHTML = '';
+    return;
+  }
+
+  // Buscar preços atuais via Yahoo Finance
+  avenueAtivos.forEach(async (a, idx) => {
+    if (a._priceTs && Date.now() - a._priceTs < 15*60*1000) return; // cache 15min
+    try {
+      const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${a.ticker}?interval=1d&range=1d`);
+      if (!r.ok) return;
+      const d = await r.json();
+      const price = d.chart?.result?.[0]?.meta?.regularMarketPrice;
+      if (price) {
+        avenueAtivos[idx]._precoAtual = price;
+        avenueAtivos[idx]._priceTs = Date.now();
+        saveAvenue();
+        renderAvenueTable(usdRate);
+      }
+    } catch(e) {}
+  });
+
+  renderAvenueTable(usdRate);
+}
+
+function renderAvenueTable(usdRate) {
+  const container = document.getElementById('avenueAtivos');
+  const resultEl  = document.getElementById('avenueResult');
+  if (!container) return;
+
+  let totalInvestidoUsd = 0;
+  let totalMercadoUsd   = 0;
+  let totalDivUsdAnual  = 0;
+
+  container.innerHTML = avenueAtivos.map((a, idx) => {
+    const investido   = (a.qtd || 0) * (a.preco || 0);
+    const precoAtual  = a._precoAtual || a.preco || 0;
+    const mercado     = (a.qtd || 0) * precoAtual;
+    const pnlUsd      = mercado - investido;
+    const pnlPct      = investido > 0 ? (pnlUsd / investido * 100) : 0;
+    const divAnualUsd = mercado * (a.divYield || 0) / 100;
+    const divMesUsd   = divAnualUsd / 12;
+
+    totalInvestidoUsd += investido;
+    totalMercadoUsd   += mercado;
+    totalDivUsdAnual  += divAnualUsd;
+
+    const pnlColor = pnlUsd >= 0 ? '#86efac' : '#fca5a5';
+    const priceTag = a._precoAtual
+      ? `<span class="text-xs text-neutral-500">@ $${fmtNumBR(a._precoAtual, 2)} atual</span>`
+      : `<span class="text-xs text-neutral-600">preço de compra: $${fmtNumBR(a.preco, 2)}</span>`;
+
+    return `<div class="flex items-center gap-3 bg-[#0a0a0a] rounded px-3 py-2 flex-wrap text-xs">
+      <span class="text-white font-bold w-16">${a.ticker}</span>
+      <span class="text-neutral-400">${fmtNumBR(a.qtd, 3)} cotas</span>
+      ${priceTag}
+      <span class="font-semibold text-white">$${fmtNumBR(mercado, 2)}</span>
+      <span style="color:${pnlColor}">${pnlUsd >= 0 ? '+' : ''}$${fmtNumBR(pnlUsd, 2)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%)</span>
+      <span class="text-green-400">div: $${fmtNumBR(divMesUsd, 2)}/mês</span>
+      <span class="text-neutral-400">≈ R$ ${fmtNumBR(mercado * usdRate)}</span>
+      <button class="ml-auto danger text-xs" onclick="removeAvenueAtivo(${idx})" style="padding:0.1rem 0.4rem;">×</button>
+    </div>`;
+  }).join('');
+
+  const totalPnlUsd  = totalMercadoUsd - totalInvestidoUsd;
+  const totalPnlPct  = totalInvestidoUsd > 0 ? (totalPnlUsd / totalInvestidoUsd * 100) : 0;
+  const divMesBrl    = totalDivUsdAnual / 12 * usdRate;
+  const pnlColor     = totalPnlUsd >= 0 ? '#86efac' : '#fca5a5';
+
+  if (resultEl) resultEl.innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+      <div class="metric">
+        <div class="metric-value text-white">$${fmtNumBR(totalMercadoUsd, 2)}</div>
+        <div class="metric-label">Total em USD (mercado)</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" style="color:${pnlColor}">${totalPnlUsd >= 0 ? '+' : ''}$${fmtNumBR(totalPnlUsd, 2)}</div>
+        <div class="metric-label">P&L (${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%)</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value text-green-400">$${fmtNumBR(totalDivUsdAnual/12, 2)}/mês</div>
+        <div class="metric-label">Dividendos est. USD</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value text-blue-400">${fmtBRL(divMesBrl)}/mês</div>
+        <div class="metric-label">Dividendos est. BRL</div>
+      </div>
+    </div>
+    <div class="text-xs text-neutral-600 mt-2">Dividendos: 30% retido na fonte (EUA). Ganho de capital: 15% no BR, isenção até US$ 35k/mês em vendas.</div>
+  `;
+
+  // Atualizar renderSummary para incluir Avenue
+  if (typeof renderSummary === 'function') renderSummary();
+}
+
+function removeAvenueAtivo(idx) {
+  if (confirm(`Remover ${avenueAtivos[idx]?.ticker}?`)) {
+    avenueAtivos.splice(idx, 1);
+    saveAvenue(); renderAvenue();
+  }
+}
+
+// Listeners
+const avenueAddBtn    = document.getElementById('avenueAddBtn');
+const avenueSaveBtn   = document.getElementById('avenueSaveBtn');
+const avenueCancelBtn = document.getElementById('avenueCancelBtn');
+const avenueFormEl    = document.getElementById('avenueForm');
+
+if (avenueAddBtn) avenueAddBtn.addEventListener('click', () => {
+  avenueFormEl.classList.toggle('hidden');
+  document.getElementById('avenueTicker')?.focus();
+});
+if (avenueCancelBtn) avenueCancelBtn.addEventListener('click', () => {
+  avenueFormEl.classList.add('hidden');
+});
+if (avenueSaveBtn) avenueSaveBtn.addEventListener('click', () => {
+  const ticker   = (document.getElementById('avenueTicker')?.value || '').trim().toUpperCase();
+  const qtd      = parseFloat(document.getElementById('avenueQtd')?.value)       || 0;
+  const preco    = parseFloat(document.getElementById('avenuePreco')?.value)      || 0;
+  const divYield = parseFloat(document.getElementById('avenueDivYield')?.value)   || 0;
+  if (!ticker || qtd <= 0 || preco <= 0) return alert('Preencha ticker, quantidade e preço.');
+  avenueAtivos.push({ ticker, qtd, preco, divYield });
+  saveAvenue(); renderAvenue();
+  avenueFormEl.classList.add('hidden');
+  ['avenueTicker','avenueQtd','avenuePreco','avenueDivYield'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+});
+
+document.getElementById('avenueUsdRate')?.addEventListener('change', () => { renderAvenue(); renderSummary(); });
+document.getElementById('avenueEnabled')?.addEventListener('change', () => { renderSummary(); });
+
+// Integrar Avenue no renderSummary
+const _origRenderSummaryAvenue = renderSummary;
+renderSummary = function() {
+  _origRenderSummaryAvenue.apply(this, arguments);
+  // Adicionar dividendos Avenue ao total (se enabled)
+  if (!document.getElementById('avenueEnabled')?.checked) return;
+  const usdRate = getAvenueUsdRate();
+  const divMensal = avenueAtivos.reduce((s, a) => {
+    const mercado = (a.qtd||0) * (a._precoAtual || a.preco || 0);
+    return s + mercado * (a.divYield||0) / 100 / 12 * usdRate;
+  }, 0);
+  // Atualizar renda mensal somando Avenue
+  const rendaEl = document.getElementById('sumRendaMensal');
+  if (rendaEl && divMensal > 0) {
+    const atual = parseNumBR(rendaEl.textContent.replace('R$','').trim()) || 0;
+    rendaEl.textContent = 'R$ ' + fmtNumBR(atual + divMensal);
+  }
+};
+
+loadAvenue();
+renderAvenue();
 </script>
 
 </body>
