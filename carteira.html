@@ -365,11 +365,11 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Saldo atual (R$)</label>
-            <input type="text" inputmode="decimal" id="interSaldo" value="103.346,35" />
+            <input type="text" inputmode="decimal" id="interSaldo" value="103.616,27" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Já rendeu total (R$)</label>
-            <input type="text" inputmode="decimal" id="interJaRendeu" value="5.346,35" />
+            <input type="text" inputmode="decimal" id="interJaRendeu" value="5.616,27" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. bruta (%)</label>
@@ -535,15 +535,15 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Saldo atual (USD)</label>
-            <input type="text" inputmode="decimal" id="wiseUsdSaldo" value="103,06" />
+            <input type="text" inputmode="decimal" id="wiseUsdSaldo" value="103,14" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Rendeu este mês (USD)</label>
-            <input type="text" inputmode="decimal" id="wiseUsdRendeu" value="0,29" />
+            <input type="text" inputmode="decimal" id="wiseUsdRendeu" value="0,07" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. (%)</label>
-            <input type="text" inputmode="decimal" id="wiseUsdTaxa" value="3,39" />
+            <input type="text" inputmode="decimal" id="wiseUsdTaxa" value="3,44" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">USD/BRL</label>
@@ -593,15 +593,15 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Saldo atual (EUR)</label>
-            <input type="text" inputmode="decimal" id="wiseEurSaldo" value="3.016,13" />
+            <input type="text" inputmode="decimal" id="wiseEurSaldo" value="3.017,70" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Rendeu este mês (EUR)</label>
-            <input type="text" inputmode="decimal" id="wiseEurRendeu" value="2,53" />
+            <input type="text" inputmode="decimal" id="wiseEurRendeu" value="1,26" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. (%)</label>
-            <input type="text" inputmode="decimal" id="wiseEurTaxa" value="1,98" />
+            <input type="text" inputmode="decimal" id="wiseEurTaxa" value="2,02" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">EUR/BRL</label>
@@ -2062,7 +2062,7 @@ localStorage.setItem('fin_trader_sim_v3', JSON.stringify({
   } catch(e) {}
 }
 
-const DEPLOY_VERSION = '20260802_v2';
+const DEPLOY_VERSION = '20260810_v3';
 function loadSimulador() {
   // Saldos SEMPRE vêm do HTML — nunca do localStorage
   // localStorage só guarda preferências (checkboxes)
@@ -2944,16 +2944,16 @@ if (ativoHistBuscarBtn) {
 // O usuário atualiza o saldo quando quiser. Novos aportes se somam.
 
 const WISE_DEFAULT_COINS = [
-  { moeda: "USD", simbolo: "$",  saldoAtual: 102.91,  jaRendeu: 0.16, taxa: 3.39, rateBrl: 5.70, enabled: true },
-  { moeda: "EUR", simbolo: "€",  saldoAtual: 1014.21, jaRendeu: 0.97, taxa: 1.98, rateBrl: 6.30, enabled: true },
+  { moeda: "USD", simbolo: "$",  saldoAtual: 103.14,  jaRendeu: 0.07, taxa: 3.44, rateBrl: 5.0777, enabled: true },
+  { moeda: "EUR", simbolo: "€",  saldoAtual: 3017.70, jaRendeu: 1.26, taxa: 2.02, rateBrl: 5.7971, enabled: true },
 ];
 
 let wiseData = {
   coins: JSON.parse(JSON.stringify(WISE_DEFAULT_COINS)),
   aportes: [],
   enabled: true,
-  usdBrl: 5.70,
-  eurBrl: 6.30,
+  usdBrl: 5.0777,
+  eurBrl: 5.7971,
 };
 
 function resetWiseToDefaults() {
@@ -2961,7 +2961,7 @@ function resetWiseToDefaults() {
   localStorage.removeItem("fin_trader_wise_v2");
   wiseData = {
     coins: JSON.parse(JSON.stringify(WISE_DEFAULT_COINS)),
-    aportes: [], enabled: true, usdBrl: 5.70, eurBrl: 6.30,
+    aportes: [], enabled: true, usdBrl: 5.0777, eurBrl: 5.7971,
   };
   saveWise(); loadWise(); renderWise(); renderRenda();
 }
@@ -2969,6 +2969,11 @@ function resetWiseToDefaults() {
 function loadWise() {
   // Limpar versão antiga se existir
   localStorage.removeItem("fin_trader_wise_v1");
+  // Reset automático quando deploy muda (novos valores reais)
+  if (localStorage.getItem("fin_trader_wise_deploy") !== DEPLOY_VERSION) {
+    localStorage.removeItem("fin_trader_wise_v2");
+    localStorage.setItem("fin_trader_wise_deploy", DEPLOY_VERSION);
+  }
   try {
     const raw = localStorage.getItem("fin_trader_wise_v2");
     if (raw) {
@@ -3536,7 +3541,7 @@ function renderSummary() {
 
   // ---- INTER BRL ----
   // Saldo de referência: R$ 103.346,35 confirmado em 01/08/2026
-  const iSaldoRef = g('interSaldo')         || 103346.35;
+  const iSaldoRef = g('interSaldo')         || 103616.27;
   const iDataRef  = document.getElementById('interDataInicio')?.value || '2026-08-01';
   const iT        = g('interTaxa')          || 14.00;
   const iIR       = g('interIR')            || 15;
@@ -3547,9 +3552,9 @@ function renderSummary() {
 
   // ---- WISE USD ----
   // Saldo de referência: $103,06 confirmado em 01/08/2026
-  const uSaldoRef = g('wiseUsdSaldo')        || 103.06;
+  const uSaldoRef = g('wiseUsdSaldo')        || 103.14;
   const uDataRef  = document.getElementById('wiseUsdInicio')?.value || '2026-08-01';
-  const uT        = g('wiseUsdTaxa')         || 3.39;
+  const uT        = g('wiseUsdTaxa') || 3.44;
   const uRate     = g('wiseUsdRate')         || 5.0777;
   const uSaldo    = saldoAtual(uSaldoRef, uT, uDataRef);
   const uMes      = rendMes(uSaldo, uT);
@@ -3567,9 +3572,9 @@ function renderSummary() {
 
   // ---- WISE EUR ----
   // Saldo de referência: €3.016,13 confirmado em 01/08/2026
-  const eSaldoRef = g('wiseEurSaldo')        || 3016.13;
+  const eSaldoRef = g('wiseEurSaldo')        || 3017.70;
   const eDataRef  = document.getElementById('wiseEurInicio')?.value || '2026-08-01';
-  const eT        = g('wiseEurTaxa')         || 1.98;
+  const eT        = g('wiseEurTaxa')         || 2.02;
   const eRate     = g('wiseEurRate')         || 5.7971;
   const eSaldo    = saldoAtual(eSaldoRef, eT, eDataRef);
   const eMes      = rendMes(eSaldo, eT);
@@ -3732,7 +3737,7 @@ function renderDailyAccrual() {
 
   // ---- WISE EUR ----
   const eurSaldo = parseNumBR(document.getElementById('wiseEurSaldo')?.value || '0');
-  const eurTaxa = parseNumBR(document.getElementById('wiseEurTaxa')?.value || '1.98');
+  const eurTaxa = parseNumBR(document.getElementById('wiseEurTaxa')?.value || '2.02');
   const eurRate = parseNumBR(document.getElementById('wiseEurRate')?.value || '5.80');
   const eurInicio = document.getElementById('wiseEurInicio')?.value;
 
