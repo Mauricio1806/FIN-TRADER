@@ -150,8 +150,8 @@ Seja direto, numérico e personalizado. Máximo 300 palavras. Responda em portug
                 "content-type": "application/json"
             },
             json={
-                "model": "claude-sonnet-4-6",
-                "max_tokens": 600,
+                "model": "claude-haiku-4-5",
+                "max_tokens": 400,
                 "messages": [{"role": "user", "content": prompt}]
             },
             timeout=30
