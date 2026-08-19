@@ -13,10 +13,10 @@ from pathlib import Path
 
 # ============ CARTEIRA REAL (atualizar quando mudar) ============
 CARTEIRA = {
-    "inter_brl":  {"saldo": 103616.27, "taxa": 14.00, "ir": 15.0},
+    "inter_brl":  {"saldo": 109991.56, "taxa": 14.00, "ir": 15.0},
     "inter_usd":  {"saldo": 101.31,    "taxa": 3.39},
-    "wise_usd":   {"saldo": 103.14,    "taxa": 3.44},
-    "wise_eur":   {"saldo": 3017.70,   "taxa": 2.02},
+    "wise_usd":   {"saldo": 103.23,    "taxa": 3.44},
+    "wise_eur":   {"saldo": 3019.34,   "taxa": 2.02},
     "meta_renda_mensal": 1745.0,
     "meta_patrimonio":   198000.0,
     "data_emigracao":    "2027-02-01",
