@@ -365,11 +365,11 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Saldo atual (R$)</label>
-            <input type="text" inputmode="decimal" id="interSaldo" value="118.649,70" />
+            <input type="text" inputmode="decimal" id="interSaldo" value="118.890,93" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Já rendeu total (R$)</label>
-            <input type="text" inputmode="decimal" id="interJaRendeu" value="7.649,70" />
+            <input type="text" inputmode="decimal" id="interJaRendeu" value="7.685,00" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. bruta (%)</label>
@@ -383,7 +383,7 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Data de início (para cálculo diário)</label>
-            <input type="date" id="interDataInicio" value="2026-09-30" />
+            <input type="date" id="interDataInicio" value="2026-10-06" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Principal original (R$)</label>
@@ -458,7 +458,7 @@
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Data de início</label>
-            <input type="date" id="interUsdInicio" value="2026-09-30" />
+            <input type="date" id="interUsdInicio" value="2026-10-06" />
           </div>
         </div>
         <div id="interUsdResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
@@ -552,7 +552,7 @@
         </div>
         <div>
           <label class="block text-xs text-neutral-500 mb-1">Data de início Rende+ USD</label>
-          <input type="date" id="wiseUsdInicio" value="2026-09-30" />
+          <input type="date" id="wiseUsdInicio" value="2026-10-06" />
         </div>
         <div id="wiseUsdResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
         <div class="border-t border-[#1f1f1f] pt-2 space-y-2">
@@ -593,11 +593,11 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Saldo atual (EUR)</label>
-            <input type="text" inputmode="decimal" id="wiseEurSaldo" value="7.279,33" />
+            <input type="text" inputmode="decimal" id="wiseEurSaldo" value="8.688,39" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Rendeu este mês (EUR)</label>
-            <input type="text" inputmode="decimal" id="wiseEurRendeu" value="8,79" />
+            <input type="text" inputmode="decimal" id="wiseEurRendeu" value="2,41" />
           </div>
           <div>
             <label class="block text-xs text-neutral-500 mb-1">Taxa a.a. (%)</label>
@@ -610,7 +610,7 @@
         </div>
         <div>
           <label class="block text-xs text-neutral-500 mb-1">Data de início Rende+ EUR</label>
-          <input type="date" id="wiseEurInicio" value="2026-09-30" />
+          <input type="date" id="wiseEurInicio" value="2026-10-06" />
         </div>
         <div id="wiseEurResult" class="text-sm text-neutral-400 border-t border-[#1f1f1f] pt-2"></div>
         <div class="border-t border-[#1f1f1f] pt-2 space-y-2">
@@ -1934,7 +1934,7 @@ function renderRenda() {
   // RF IPCA+: Tesouro IPCA+2035 = IPCA(4,64%) + 8,33% = ~12,97% bruto
   // RF CDB/Selic: CDI 14,15% / Selic 14,25%
   const yieldsConfig = typeof yieldsState !== 'undefined' ? yieldsState : {
-    rv_int:{yield:12,ir:15}, rv_br:{yield:13,ir:15}, rf_ipca:{yield:12.97,ir:15}, rf_selic:{yield:13.75,ir:15}
+    rv_int:{yield:12,ir:15}, rv_br:{yield:13,ir:15}, rf_ipca:{yield:12.97,ir:15}, rf_selic:{yield:13.65,ir:15}
   };
   const strategyNames = typeof DEFAULT_STRATEGY !== 'undefined' ? DEFAULT_STRATEGY : {
     rv_int:{name:'RV Internacional',pill:'pill-rv-int'},
@@ -2011,7 +2011,7 @@ localStorage.setItem('fin_trader_sim_v3', JSON.stringify({
   } catch(e) {}
 }
 
-const DEPLOY_VERSION = '20260930_v1';
+const DEPLOY_VERSION = '20261006_v1';
 function loadSimulador() {
   // Saldos SEMPRE vêm do HTML — nunca do localStorage
   // localStorage só guarda preferências (checkboxes)
@@ -2061,7 +2061,7 @@ let yieldsState = {
   rv_int: { yield: 12.00, ir: 15, label: 'RV Internacional', note: 'Retorno hist. S&P500 em BRL — VARIÁVEL' },
   rv_br:  { yield: 13.00, ir: 15, label: 'RV Brasil',        note: 'Retorno hist. Ibovespa — VARIÁVEL' },
   rf_ipca:{ yield: 12.97, ir: 15, label: 'RF IPCA+',         note: 'Tesouro IPCA+2035: IPCA+8,33% (jul/2026)' },
-  rf_selic:{ yield:14.15, ir: 15, label: 'RF CDB/Selic',     note: 'CDI 14,15% (Selic 14,25%, jul/2026)' },
+  rf_selic:{ yield:13.65, ir: 15, label: 'RF CDB/Selic',     note: 'CDI 13,65% (Selic 13,75%, out/2026)' },
 };
 
 function loadYields() {
