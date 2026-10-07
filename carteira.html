@@ -2011,7 +2011,7 @@ localStorage.setItem('fin_trader_sim_v3', JSON.stringify({
   } catch(e) {}
 }
 
-const DEPLOY_VERSION = '20261006_v1';
+const DEPLOY_VERSION = '20261007_v1';
 function loadSimulador() {
   // Saldos SEMPRE vêm do HTML — nunca do localStorage
   // localStorage só guarda preferências (checkboxes)
@@ -2894,7 +2894,7 @@ if (ativoHistBuscarBtn) {
 
 const WISE_DEFAULT_COINS = [
   { moeda: "USD", simbolo: "$",  saldoAtual: 103.65,  jaRendeu: 0.07, taxa: 3.44, rateBrl: 5.0777, enabled: true },
-  { moeda: "EUR", simbolo: "€",  saldoAtual: 7279.33, jaRendeu: 1.26, taxa: 2.25, rateBrl: 5.7971, enabled: true },
+  { moeda: "EUR", simbolo: "€",  saldoAtual: 8688.39, jaRendeu: 2.41, taxa: 2.25, rateBrl: 5.7971, enabled: true },
 ];
 
 let wiseData = {
@@ -2927,7 +2927,18 @@ function loadWise() {
     const raw = localStorage.getItem("fin_trader_wise_v2");
     if (raw) {
       const d = JSON.parse(raw);
-      if (d.coins && Array.isArray(d.coins) && d.coins.length > 0) wiseData.coins = d.coins;
+      // saldo e jaRendeu SEMPRE do HTML (WISE_DEFAULT_COINS) — localStorage guarda só cotações e aportes
+      if (d.coins && Array.isArray(d.coins)) {
+        d.coins.forEach(saved => {
+          const def = WISE_DEFAULT_COINS.find(x => x.moeda === saved.moeda);
+          if (def) {
+            saved.saldoAtual = def.saldoAtual;
+            saved.jaRendeu   = def.jaRendeu;
+            saved.taxa       = def.taxa;
+          }
+        });
+        wiseData.coins = d.coins;
+      }
       if (Array.isArray(d.aportes)) wiseData.aportes = d.aportes;
       if (typeof d.enabled === "boolean") wiseData.enabled = d.enabled;
       if (d.usdBrl) wiseData.usdBrl = d.usdBrl;
